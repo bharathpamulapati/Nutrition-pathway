@@ -450,18 +450,58 @@
       </section>
 
       <section id="product-library" class="product-library hidden" aria-labelledby="product-library-title">
-        <div class="section-heading">
-          <p class="eyebrow">Enteral preparation library</p>
-          <h2 id="product-library-title">Commercial Enteral Nutrition Preparations</h2>
-          <p>
-            Product tiles summarize available preparations and key constituents
-            using the same pathway color theme.
-          </p>
+        <button id="prep-library-toggle" class="library-tile" type="button">
+          <span class="eyebrow">Enteral preparation library</span>
+          <strong id="product-library-title">Enteral Preparation Library</strong>
+          <small>Click to view commercial enteral preparations</small>
+        </button>
+
+        <div id="prep-library-content" class="hidden">
+          <div class="section-heading">
+            <p class="eyebrow">Commercial preparations</p>
+            <h2>Commercial Enteral Nutrition Preparations</h2>
+            <p>
+              Product tiles summarize available preparations and key constituents
+              using the same pathway color theme.
+            </p>
+          </div>
+
+          <section class="product-filter-panel" aria-labelledby="product-filter-title">
+            <div>
+              <h3 id="product-filter-title">Choose filters</h3>
+              <p>
+                Select any filters to narrow the displayed commercial enteral
+                nutrition preparations.
+              </p>
+            </div>
+            <div class="product-filter-grid">
+              <fieldset>
+                <legend>Sodium</legend>
+                <label><input type="checkbox" name="product-filter" value="low-sodium" /> Low sodium (&lt;100 mg)</label>
+                <label><input type="checkbox" name="product-filter" value="high-sodium" /> High sodium (&gt;200 mg)</label>
+              </fieldset>
+              <fieldset>
+                <legend>Calorie density</legend>
+                <label><input type="checkbox" name="product-filter" value="low-cal-density" /> Low calorie density (&lt;1 Kcal/mL)</label>
+                <label><input type="checkbox" name="product-filter" value="high-cal-density" /> High calorie density (&ge;2 Kcal/mL)</label>
+              </fieldset>
+              <fieldset>
+                <legend>Protein</legend>
+                <label><input type="checkbox" name="product-filter" value="low-protein" /> Low protein (&lt;10 g)</label>
+                <label><input type="checkbox" name="product-filter" value="high-protein" /> High protein (&gt;15 g)</label>
+              </fieldset>
+              <fieldset>
+                <legend>Fluid restriction</legend>
+                <label><input type="checkbox" name="product-filter" value="fluid-restriction" /> Show feeds &ge;2 Kcal/mL only</label>
+              </fieldset>
+            </div>
+            <p id="product-filter-summary" class="summary">No filters selected. Showing all preparations.</p>
+          </section>
+
+          <div id="product-grid" class="product-grid" aria-live="polite"></div>
         </div>
 
-        <div id="product-grid" class="product-grid" aria-live="polite"></div>
-
-        <section class="feed-configurator" aria-labelledby="feed-config-title">
+        <section class="feed-configurator hidden" aria-labelledby="feed-config-title">
           <div class="section-heading compact-heading">
             <p class="eyebrow">Feed setup</p>
             <h2 id="feed-config-title">Configure Feeds</h2>

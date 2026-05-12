@@ -31,6 +31,9 @@ const proteinTargetValue = document.getElementById("protein-target-value");
 const calorieTarget = document.getElementById("calorie-target");
 const calorieTargetValue = document.getElementById("calorie-target-value");
 const productLibrary = document.getElementById("product-library");
+const prepLibraryToggle = document.getElementById("prep-library-toggle");
+const prepLibraryContent = document.getElementById("prep-library-content");
+const productFilterSummary = document.getElementById("product-filter-summary");
 const productGrid = document.getElementById("product-grid");
 const feedConfigurator = document.querySelector(".feed-configurator");
 const feedProductName = document.getElementById("feed-product-name");
@@ -115,6 +118,15 @@ const enteralPreparations = [
 ];
 
 let selectedFeedProductName = null;
+const productFilterDefinitions = {
+  "low-sodium": "Low Sodium",
+  "high-sodium": "High Sodium",
+  "low-cal-density": "Low Cal Density",
+  "high-cal-density": "High Cal Density",
+  "low-protein": "Low Protein",
+  "high-protein": "High Protein",
+  "fluid-restriction": "Fluid Restriction",
+};
 
 const pathwayState = {
   patient: null,
@@ -205,6 +217,88 @@ function getConstituentNumber(product, label) {
   return item ? parseConstituentNumber(item.value) : 0;
 }
 
+function getSelectedProductFilters() {
+  return Array.from(document.querySelectorAll('input[name="product-filter"]:checked')).map(
+    (input) => input.value
+  );
+}
+
+function getProductFilterTags(product) {
+  const sodium = getConstituentNumber(product, "Sodium");
+  const calorieDensity = getConstituentNumber(product, "Cal Density");
+  const protein = getConstituentNumber(product, "Protein");
+  const tags = [];
+
+  if (sodium < 100) {
+    tags.push("Low Sodium");
+  } else if (sodium > 200) {
+    tags.push("High Sodium");
+  }
+
+  if (calorieDensity < 1) {
+    tags.push("Low Cal Density");
+  } else if (calorieDensity >= 2) {
+    tags.push("High Cal Density");
+    tags.push("Fluid Restriction");
+  }
+
+  if (protein < 10) {
+    tags.push("Low Protein");
+  } else if (protein > 15) {
+    tags.push("High Protein");
+  }
+
+  return tags;
+}
+
+function productMatchesFilter(product, filter) {
+  return getProductFilterTags(product).includes(productFilterDefinitions[filter]);
+}
+
+function productMatchesSelectedFilters(product, selectedFilters) {
+  if (selectedFilters.length === 0) {
+    return true;
+  }
+
+  const filterGroups = {
+    sodium: ["low-sodium", "high-sodium"],
+    calorieDensity: ["low-cal-density", "high-cal-density"],
+    protein: ["low-protein", "high-protein"],
+    fluidRestriction: ["fluid-restriction"],
+  };
+
+  return Object.values(filterGroups).every((group) => {
+    const activeGroupFilters = group.filter((filter) => selectedFilters.includes(filter));
+
+    if (activeGroupFilters.length === 0) {
+      return true;
+    }
+
+    return activeGroupFilters.some((filter) => productMatchesFilter(product, filter));
+  });
+}
+
+function getFilteredPreparations() {
+  const selectedFilters = getSelectedProductFilters();
+  return getSortedPreparations().filter((product) =>
+    productMatchesSelectedFilters(product, selectedFilters)
+  );
+}
+
+function updateProductFilterSummary(products) {
+  const selectedFilters = getSelectedProductFilters();
+
+  if (selectedFilters.length === 0) {
+    productFilterSummary.textContent = "No filters selected. Showing all preparations.";
+    return;
+  }
+
+  const filterNames = selectedFilters.map((filter) => productFilterDefinitions[filter]).join(", ");
+  productFilterSummary.textContent = `Filters selected: ${filterNames}. Showing ${products.length} matching preparation${
+    products.length === 1 ? "" : "s"
+  }.`;
+}
+
 function formatNumber(value, decimals = 1) {
   const numericValue = Number(value);
 
@@ -234,39 +328,80 @@ function getDilutionLabel(multiplier) {
   return "Standard";
 }
 
+function getDisplayConstituentLabel(label) {
+  return label === "Cal Density" ? "Calorie density" : label;
+}
+
+function renderConstituentTile(item) {
+  return `
+    <div class="constituent-tile ${item.highlight ? "featured" : ""}">
+      <span>${getDisplayConstituentLabel(item.label)}</span>
+      <strong>${item.value}</strong>
+    </div>
+  `;
+}
+
 function renderEnteralPreparations() {
-  productGrid.innerHTML = getSortedPreparations()
+  const mainLabels = ["Calories", "Cal Density", "Protein", "Total Volume"];
+  const productsToRender = getFilteredPreparations();
+  updateProductFilterSummary(productsToRender);
+
+  if (productsToRender.length === 0) {
+    productGrid.innerHTML = `
+      <article class="product-card empty-product-card">
+        <h3>No matching preparations</h3>
+        <p>Change or clear filters to view commercial enteral nutrition preparations.</p>
+      </article>
+    `;
+    return;
+  }
+
+  productGrid.innerHTML = productsToRender
     .map(
-      (product) => `
+      (product, index) => {
+        const mainConstituents = product.constituents.filter((item) =>
+          mainLabels.includes(item.label)
+        );
+        const extraConstituents = product.constituents.filter(
+          (item) => !mainLabels.includes(item.label)
+        );
+        const detailsId = `product-details-${index}`;
+
+        return `
         <article class="product-card ${
           product.name === selectedFeedProductName ? "selected-product" : ""
-        }" data-product-name="${product.name}">
+        }" data-product-name="${product.name}" data-expanded="false">
           <div class="product-card-header">
             <div>
               <h3>${product.name}</h3>
               <p>${product.type} &bull; ${product.manufacturer}</p>
             </div>
             <div class="product-tags">
-              ${product.tags
+              ${getProductFilterTags(product)
                 .map((tag) => `<span class="${getTagClass(tag)}">${tag}</span>`)
                 .join("")}
             </div>
           </div>
           <div class="constituent-grid">
-            ${product.constituents
-              .map(
-                (item) => `
-                  <div class="constituent-tile ${item.highlight ? "featured" : ""}">
-                    <span>${item.label}</span>
-                    <strong>${item.value}</strong>
-                  </div>
-                `
-              )
-              .join("")}
+            ${mainConstituents.map(renderConstituentTile).join("")}
           </div>
-          <p class="dilution-note">${product.dilution}</p>
+          <div id="${detailsId}" class="product-extra-details hidden">
+            <div class="constituent-grid">
+              ${extraConstituents.map(renderConstituentTile).join("")}
+            </div>
+            <p class="dilution-note">${product.dilution}</p>
+          </div>
+          <button
+            class="show-more-product"
+            type="button"
+            aria-expanded="false"
+            aria-controls="${detailsId}"
+          >
+            Show more
+          </button>
         </article>
-      `
+      `;
+      }
     )
     .join("");
 }
@@ -356,8 +491,7 @@ function updateFeedConfiguration() {
     ),
     createSummaryTile(
       "Calories delivered",
-      `${Math.round(feedConfig.deliveredCalories)} kcal/day`,
-      `${feedConfig.selectedProduct.name} at ${formatNumber(feedConfig.adjustedCalDensity, 2)} kcal/mL`
+      `${Math.round(feedConfig.deliveredCalories)} kcal/day`
     ),
     createSummaryTile(
       "Protein target required",
@@ -368,8 +502,7 @@ function updateFeedConfiguration() {
     ),
     createSummaryTile(
       "Protein delivered",
-      `${formatNumber(feedConfig.deliveredProtein)} g/day`,
-      `${formatNumber(feedConfig.adjustedProteinPerMl, 3)} g/mL`
+      `${formatNumber(feedConfig.deliveredProtein)} g/day`
     ),
   ].join("");
 
@@ -377,8 +510,9 @@ function updateFeedConfiguration() {
     createSummaryTile("Feeds per day", feedConfig.feedsPerDay),
     createSummaryTile(
       "Calories and protein per feed",
-      `${Math.round(feedConfig.caloriesPerFeed)} kcal`,
-      `${formatNumber(feedConfig.proteinPerFeed)} g protein`
+      `${Math.round(feedConfig.caloriesPerFeed)} kcal / ${formatNumber(
+        feedConfig.proteinPerFeed
+      )} g protein`
     ),
     createSummaryTile("Volume per feed", `${Math.round(feedConfig.volumePerFeed)} mL`),
     createSummaryTile("Total calories per day", `${Math.round(feedConfig.deliveredCalories)} kcal`),
@@ -388,7 +522,7 @@ function updateFeedConfiguration() {
 
   feedInstruction.textContent = `Instruction: Prepare fresh feed every ${formatNumber(
     feedConfig.timePerFeed
-  )} hours obtained at time per feed in feed configuration.`;
+  )} hours.`;
 
   if (!dietPrescription.classList.contains("hidden")) {
     renderDietPrescription(false);
@@ -402,11 +536,20 @@ function resetFeedConfiguration() {
   feedRate.value = "20";
   dietPrescription.innerHTML = "";
   dietPrescription.classList.add("hidden");
+  feedConfigurator.classList.add("hidden");
   pathwayState.dietPrescription = null;
   pathwayState.dietPrescriptionText = null;
   updateSelectedFeedProductName();
   renderEnteralPreparations();
   updateFeedConfiguration();
+}
+
+function resetPreparationLibrary() {
+  prepLibraryContent.classList.add("hidden");
+  document.querySelectorAll('input[name="product-filter"]').forEach((input) => {
+    input.checked = false;
+  });
+  resetFeedConfiguration();
 }
 
 function getPrescriptionPatientData() {
@@ -477,9 +620,13 @@ Enteral formula selected: ${feedConfig.selectedProduct.name}
 Manufacturer recommended standard dilution: ${feedConfig.selectedProduct.dilution}
 
 Instructions to Nurse:
+
 Dilution: ${feedConfig.dilutionLabel}
+
 Rate of administration: ${feedConfig.rate} mL per hour
+
 Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours
+
 Shake feed in bag every ${formatNumber(feedConfig.timePerFeed)} hours
 
 Total calories delivered: ${Math.round(feedConfig.deliveredCalories)} KCal per day
@@ -487,19 +634,19 @@ Total protein delivered: ${formatNumber(feedConfig.deliveredProtein)} gm per day
 Any extra supplementation needed: ${extraSupplementation}
 Total volume from enteral feed per day: ${feedConfig.totalVolumePerDay} mL
 
-Standard precautions to be followed while preparing feeds: (same for every prescription)
+Standard precautions to be followed while preparing feeds:
 
-* All personal protective equipment on
-* Wash hands with soap for about 40-60 seconds
-* Use sterile plastic apron and hand care gloves while preparing the feed
-* Prepare feed as per prescription
-* After mixing thoroughly put the preparation into feeding bag
-* Confirm position of Ryles tube/Freka tube with hissing sound in epigastric area before starting feeds (If any doubt - inform the consultant immediately)
-* Start feed at prescribed rate only
-* Whenever a patient is in NBM, please confirm with ICU consultant about need for starting IV fluids
-* Measure Gastric residual volume once each morning before starting feeds. Anything above 100 mL has to be brought to the notice of ICU consultant/Trainee on duty immediately
-* Monitor GRBS as advised in daily notes, and inform ICU Consultant if GRBS > 180 mg/dL
-* Any change in dilutions or rate of administration has to be brought to the notice of ICU consultant/Trainee`;
+* All personal protective equipment like cap,mask on.
+* Wash hands with soap for about 40-60 seconds.
+* Use sterile plastic apron and hand care gloves while preparing the feed.
+* Prepare feed as per prescription.
+* After mixing thoroughly put the preparation into feeding bag.
+* Confirm position of Ryles tube/Freka tube with hissing sound in epigastric area before starting feeds (If any doubt - inform the consultant/Trainee immediately).
+* Start feed at prescribed rate only.
+* Whenever a patient is in Nil per Oral, please confirm with ICU consultant about need for starting IV fluids.
+* Measure Gastric residual volume once each morning before starting feeds at about 6AM with a syringe. Anything above 100 mL has to be brought to the notice of ICU consultant/Trainee on duty immediately
+* Monitor GRBS as advised in daily notes, and inform ICU Consultant if GRBS > 180 mg/dL.
+* Any change in dilutions or rate of administration has to be brought to the notice of ICU consultant/Trainee.`;
 
   dietPrescription.innerHTML = `
     <h3>Enteral Nutrition Prescription :</h3>
@@ -535,24 +682,26 @@ Standard precautions to be followed while preparing feeds: (same for every presc
           )
           .join("")}
       </div>
-      <h4>Instructions to Nurse:</h4>
-      <p><strong>Dilution:</strong> ${feedConfig.dilutionLabel}</p>
-      <p><strong>Rate of administration:</strong> ${feedConfig.rate} mL per hour</p>
-      <p><strong>Prepare fresh feed every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
-      <p><strong>Shake feed in bag every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
-      <h4>Standard precautions to be followed while preparing feeds: (same for every prescription)</h4>
+      <div class="nurse-instructions">
+        <h4>Instructions to Nurse:</h4>
+        <p><strong>Dilution:</strong> ${feedConfig.dilutionLabel}</p>
+        <p><strong>Rate of administration:</strong> ${feedConfig.rate} mL per hour</p>
+        <p><strong>Prepare fresh feed every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
+        <p><strong>Shake feed in bag every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
+      </div>
+      <h4>Standard precautions to be followed while preparing feeds:</h4>
       <ul>
-        <li>All personal protective equipment on</li>
-        <li>Wash hands with soap for about 40-60 seconds</li>
-        <li>Use sterile plastic apron and hand care gloves while preparing the feed</li>
-        <li>Prepare feed as per prescription</li>
-        <li>After mixing thoroughly put the preparation into feeding bag</li>
-        <li>Confirm position of Ryles tube/Freka tube with hissing sound in epigastric area before starting feeds (If any doubt - inform the consultant immediately)</li>
-        <li>Start feed at prescribed rate only</li>
-        <li>Whenever a patient is in NBM, please confirm with ICU consultant about need for starting IV fluids</li>
-        <li>Measure Gastric residual volume once each morning before starting feeds. Anything above 100 mL has to be brought to the notice of ICU consultant/Trainee on duty immediately</li>
-        <li>Monitor GRBS as advised in daily notes, and inform ICU Consultant if GRBS &gt; 180 mg/dL</li>
-        <li>Any change in dilutions or rate of administration has to be brought to the notice of ICU consultant/Trainee</li>
+        <li>All personal protective equipment like cap,mask on.</li>
+        <li>Wash hands with soap for about 40-60 seconds.</li>
+        <li>Use sterile plastic apron and hand care gloves while preparing the feed.</li>
+        <li>Prepare feed as per prescription.</li>
+        <li>After mixing thoroughly put the preparation into feeding bag.</li>
+        <li>Confirm position of Ryles tube/Freka tube with hissing sound in epigastric area before starting feeds (If any doubt - inform the consultant/Trainee immediately).</li>
+        <li>Start feed at prescribed rate only.</li>
+        <li>Whenever a patient is in Nil per Oral, please confirm with ICU consultant about need for starting IV fluids.</li>
+        <li>Measure Gastric residual volume once each morning before starting feeds at about 6AM with a syringe. Anything above 100 mL has to be brought to the notice of ICU consultant/Trainee on duty immediately</li>
+        <li>Monitor GRBS as advised in daily notes, and inform ICU Consultant if GRBS &gt; 180 mg/dL.</li>
+        <li>Any change in dilutions or rate of administration has to be brought to the notice of ICU consultant/Trainee.</li>
       </ul>
     </div>
     <button id="copy-prescription" class="copy-prescription-tile" type="button">
@@ -1181,13 +1330,16 @@ function updateEnteralTargetDisplay() {
 function selectRoute(route) {
   if (route === "enteral") {
     prepareEnteralPlanner();
+    productLibrary.classList.remove("hidden");
+    resetPreparationLibrary();
     revealStage(stepResult);
   } else {
     resetEnteralPlanner();
+    productLibrary.classList.add("hidden");
+    resetPreparationLibrary();
     hideStage(stepResult);
   }
 
-  productLibrary.classList.remove("hidden");
   updateFeedConfiguration();
 }
 
@@ -1204,7 +1356,7 @@ function resetFlow() {
   nutritionResults.innerHTML = "";
   giResults.innerHTML = "";
   enteralTargetResults.innerHTML = "";
-  resetFeedConfiguration();
+  resetPreparationLibrary();
   patientDataResults.classList.add("hidden");
   enteralPlanner.classList.add("hidden");
   enteralTargetControls.classList.add("hidden");
@@ -1243,7 +1395,7 @@ clearPatientData.addEventListener("click", () => {
   nutritionResults.innerHTML = "";
   giResults.innerHTML = "";
   enteralTargetResults.innerHTML = "";
-  resetFeedConfiguration();
+  resetPreparationLibrary();
   nutritionResults.classList.add("hidden");
   giResults.classList.add("hidden");
   completeAssessment.classList.add("hidden");
@@ -1319,6 +1471,16 @@ enteralDayForm.addEventListener("submit", (event) => {
   input.addEventListener("input", updateFeedConfiguration);
 });
 
+document.querySelectorAll('input[name="product-filter"]').forEach((input) => {
+  input.addEventListener("change", renderEnteralPreparations);
+});
+
+prepLibraryToggle.addEventListener("click", () => {
+  prepLibraryContent.classList.remove("hidden");
+  renderEnteralPreparations();
+  productGrid.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
 generatePrescription.addEventListener("click", () => {
   renderDietPrescription();
 });
@@ -1330,9 +1492,23 @@ dietPrescription.addEventListener("click", (event) => {
 });
 
 productGrid.addEventListener("click", (event) => {
+  const showMoreButton = event.target.closest(".show-more-product");
+
+  if (showMoreButton) {
+    const card = showMoreButton.closest(".product-card");
+    const details = document.getElementById(showMoreButton.getAttribute("aria-controls"));
+    const isExpanded = showMoreButton.getAttribute("aria-expanded") === "true";
+
+    details.classList.toggle("hidden", isExpanded);
+    showMoreButton.setAttribute("aria-expanded", String(!isExpanded));
+    showMoreButton.textContent = isExpanded ? "Show more" : "Show less";
+    card.dataset.expanded = String(!isExpanded);
+    return;
+  }
+
   const card = event.target.closest(".product-card");
 
-  if (!card) {
+  if (!card || !card.dataset.productName) {
     return;
   }
 
@@ -1340,6 +1516,7 @@ productGrid.addEventListener("click", (event) => {
   updateSelectedFeedProductName();
   renderEnteralPreparations();
   updateFeedConfiguration();
+  feedConfigurator.classList.remove("hidden");
   feedConfigurator.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
