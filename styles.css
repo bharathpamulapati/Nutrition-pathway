@@ -688,17 +688,18 @@ input[type="range"] {
 }
 
 .product-tags span {
-  background: #e8eef8;
+  background: #e9f4ee;
   border-radius: 999px;
-  color: #2f5d9a;
+  color: var(--enteral);
   font-size: 0.78rem;
   font-weight: 900;
   padding: 6px 10px;
 }
 
-.product-tags .tag-high-protein {
-  background: #e9f4ee;
-  color: var(--enteral);
+.product-tags .tag-low-sodium,
+.product-tags .tag-low-cal-density {
+  background: #e8f6ff;
+  color: #0f6f94;
 }
 
 .product-tags .tag-low-protein {
@@ -706,14 +707,19 @@ input[type="range"] {
   color: #9a6400;
 }
 
+.product-tags .tag-high-protein {
+  background: #e9f4ee;
+  color: var(--enteral);
+}
+
 .product-tags .tag-high-cal-density {
-  background: #fdebf4;
-  color: #9d3c72;
+  background: #fde9f3;
+  color: #9b2f6f;
 }
 
 .product-tags .tag-fluid-restriction {
-  background: #f0e8fb;
-  color: #6f3aa0;
+  background: #f2e8ff;
+  color: #793499;
 }
 
 .constituent-grid {

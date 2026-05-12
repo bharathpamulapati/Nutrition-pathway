@@ -62,6 +62,10 @@
                 Actual body weight, kg (optional)
                 <input id="actual-weight" type="number" min="1" max="400" step="0.1" />
               </label>
+              <label>
+                Mid upper arm circumference, cm (optional)
+                <input id="muac" type="number" min="5" max="80" step="0.1" />
+              </label>
               <div class="form-actions">
                 <button class="action-btn" type="submit">Calculate IBW / PBW</button>
                 <button id="clear-patient-data" class="action-btn secondary" type="button">
@@ -88,7 +92,7 @@
               </div>
             </div>
 
-            <form id="nutrition-form" class="assessment-grid">
+            <form id="nutrition-form" class="assessment-grid" novalidate>
               <fieldset class="tool-card">
                 <legend>NUTRIC / mNUTRIC</legend>
                 <label>
