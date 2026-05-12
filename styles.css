@@ -688,22 +688,32 @@ input[type="range"] {
 }
 
 .product-tags span {
-  background: #e9f4ee;
+  background: #e8eef8;
   border-radius: 999px;
-  color: var(--enteral);
+  color: #2f5d9a;
   font-size: 0.78rem;
   font-weight: 900;
   padding: 6px 10px;
 }
 
-.product-tags span:nth-child(2) {
+.product-tags .tag-high-protein {
+  background: #e9f4ee;
+  color: var(--enteral);
+}
+
+.product-tags .tag-low-protein {
   background: #fff4d8;
   color: #9a6400;
 }
 
-.product-tags span:nth-child(3) {
-  background: #e8eef8;
-  color: #2f5d9a;
+.product-tags .tag-high-cal-density {
+  background: #fdebf4;
+  color: #9d3c72;
+}
+
+.product-tags .tag-fluid-restriction {
+  background: #f0e8fb;
+  color: #6f3aa0;
 }
 
 .constituent-grid {

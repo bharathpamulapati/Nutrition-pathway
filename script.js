@@ -34,27 +34,277 @@ const proteinTarget = document.getElementById("protein-target");
 const proteinTargetValue = document.getElementById("protein-target-value");
 const calorieTarget = document.getElementById("calorie-target");
 const calorieTargetValue = document.getElementById("calorie-target-value");
+const productLibrary = document.getElementById("product-library");
 const productGrid = document.getElementById("product-grid");
 
+function createPreparation(name, type, manufacturer, tags, values, dilution) {
+  const labels = [
+    "Calories",
+    "Cal Density",
+    "Protein",
+    "Fat",
+    "CHO",
+    "Sodium",
+    "Potassium",
+    "Phosphorus",
+    "Total Volume",
+  ];
+
+  return {
+    name,
+    type,
+    manufacturer,
+    tags,
+    constituents: labels.map((label, index) => ({
+      label,
+      value: values[index],
+      highlight: label === "Cal Density",
+    })),
+    dilution,
+  };
+}
+
 const enteralPreparations = [
-  {
-    name: "ALBUWISE",
-    type: "Standard",
-    manufacturer: "Nucgnex",
-    tags: ["Low Sodium", "High Protein", "Low Cal Density"],
-    constituents: [
-      { label: "Calories", value: "129 kcal" },
-      { label: "Cal Density", value: "0.65 kcal/ml", highlight: true },
-      { label: "Protein", value: "18.3 g" },
-      { label: "Fat", value: "3.0 g" },
-      { label: "CHO", value: "7.2 g" },
-      { label: "Sodium", value: "137 mg" },
-      { label: "Potassium", value: "116 mg" },
-      { label: "Phosphorus", value: "29 mg" },
-      { label: "Total Volume", value: "200 ml" },
-    ],
-    dilution: "Standard Dilution: 3 levelled scoops (30g) in 180ml water",
-  },
+  createPreparation(
+    "ALBUWISE",
+    "Standard",
+    "Nucgnex",
+    ["Low Sodium", "High Protein", "Low Cal Density"],
+    ["129 kcal", "0.65 kcal/ml", "18.3 g", "3.0 g", "7.2 g", "137 mg", "116 mg", "29 mg", "200 ml"],
+    "Standard Dilution: 3 levelled scoops (30g) in 180ml water"
+  ),
+  createPreparation(
+    "CELEVIDA EN - 1 Kcal/ml",
+    "Standard",
+    "Nestle-Dr Reddy",
+    ["Low Protein"],
+    ["220 kcal", "0.96 kcal/ml", "10.5 g", "8.0 g", "26.0 g", "218 mg", "137 mg", "87 mg", "230 ml"],
+    "Standard Dilution: 2 leveled scoops (50g) in 200ml water"
+  ),
+  createPreparation(
+    "CELEVIDA EN - 1.52 Kcal/ml",
+    "Standard",
+    "Nestle-Dr Reddy",
+    ["Low Protein"],
+    ["220 kcal", "1.47 kcal/ml", "10.5 g", "8.0 g", "26.0 g", "218 mg", "137 mg", "87 mg", "150 ml"],
+    "Standard Dilution: 2 leveled scoops (50g) in 125ml water"
+  ),
+  createPreparation(
+    "CELEVIDA EN - 1.69 Kcal/ml",
+    "Standard",
+    "Nestle-Dr Reddy",
+    ["Low Protein", "High Cal Density"],
+    ["220 kcal", "1.63 kcal/ml", "10.5 g", "8.0 g", "26.0 g", "218 mg", "137 mg", "87 mg", "135 ml"],
+    "Standard Dilution: 2 leveled scoops (50g) in 110ml water"
+  ),
+  createPreparation(
+    "CELEVIDA EN - 2 Kcal/ml",
+    "Standard",
+    "Nestle-Dr Reddy",
+    ["Fluid Restriction", "Low Protein", "High Cal Density"],
+    ["220 kcal", "2.00 kcal/ml", "10.5 g", "8.0 g", "26.0 g", "218 mg", "137 mg", "87 mg", "110 ml"],
+    "Standard Dilution: 2 leveled scoops (50g) in 90ml water"
+  ),
+  createPreparation(
+    "CELNUTRA 1.0",
+    "Standard",
+    "Nucgnex",
+    ["Low Sodium", "Low Protein"],
+    ["210 kcal", "1.00 kcal/ml", "10.5 g", "7.0 g", "24.3 g", "63 mg", "105 mg", "100 mg", "210 ml"],
+    "Standard Dilution: 5 leveled scoops (50g) in 170ml water"
+  ),
+  createPreparation(
+    "CELNUTRA 2.0",
+    "Standard",
+    "Nucgnex",
+    ["Low Sodium", "Fluid Restriction", "High Protein", "High Cal Density"],
+    ["245 kcal", "2.23 kcal/ml", "18.0 g", "8.9 g", "23.1 g", "67 mg", "105 mg", "71 mg", "110 ml"],
+    "Standard Dilution: 5 levelled scoops (50g) in 70ml water"
+  ),
+  createPreparation(
+    "CELNUTRA DM 1.5",
+    "Standard",
+    "Nucgnex",
+    ["Low Sodium", "Low Protein", "High Cal Density"],
+    ["230 kcal", "1.53 kcal/ml", "12.0 g", "10.0 g", "20.5 g", "100 mg", "175 mg", "160 mg", "150 ml"],
+    "Standard Dilution: 5 levelled scoops (50g) in 125ml water"
+  ),
+  createPreparation(
+    "ENSURE DM",
+    "Diabetes",
+    "Abbott",
+    ["Low Protein"],
+    ["217 kcal", "0.92 kcal/ml", "10.8 g", "8.7 g", "22.0 g", "211 mg", "370 mg", "168 mg", "237 ml"],
+    "Standard Dilution: 6 leveled scoops (52.1g) in 200ml water"
+  ),
+  createPreparation(
+    "ENSURE PLUS",
+    "Standard",
+    "Abbott",
+    ["Low Sodium", "Low Protein"],
+    ["239 kcal", "1.03 kcal/ml", "10.4 g", "6.5 g", "33.0 g", "150 mg", "314 mg", "122 mg", "231 ml"],
+    "Standard Dilution: 6 leveled scoops (55g) in 190ml water"
+  ),
+  createPreparation(
+    "FRESUBIN DM",
+    "Diabetes",
+    "Fresenius Kabi",
+    ["Low Sodium", "Low Protein"],
+    ["223 kcal", "1.02 kcal/ml", "10.1 g", "10.0 g", "24.9 g", "180 mg", "300 mg", "150 mg", "218 ml"],
+    "Standard Dilution: 4 leveled scoops (50g) in 170ml water"
+  ),
+  createPreparation(
+    "FRESUBIN HP",
+    "High Protein",
+    "Fresenius Kabi",
+    ["Low Sodium", "Fluid Restriction", "Low Protein", "High Cal Density"],
+    ["200 kcal", "2.00 kcal/ml", "9.0 g", "10.5 g", "18.5 g", "63 mg", "99 mg", "63 mg", "100 ml"],
+    "Standard Dilution: 3 leveled scoops (42g) in 60ml water"
+  ),
+  createPreparation(
+    "HINEX DM",
+    "Diabetic",
+    "Otsuka",
+    ["Low Sodium", "Low Protein"],
+    ["228 kcal", "1.14 kcal/ml", "11.4 g", "10.1 g", "25.3 g", "152 mg", "266 mg", "135 mg", "200 ml"],
+    "Standard Dilution: 4 leveled scoops (50g) in 190ml water"
+  ),
+  createPreparation(
+    "HINEX HP",
+    "High Protein",
+    "Otsuka",
+    ["Low Sodium", "Low Protein", "Low Cal Density"],
+    ["89 kcal", "0.45 kcal/ml", "11.3 g", "0.3 g", "11.4 g", "60 mg", "190 mg", "63 mg", "200 ml"],
+    "Standard Dilution: 2 leveled scoops (25g) in 150ml water"
+  ),
+  createPreparation(
+    "HINEX ST",
+    "Standard",
+    "Otsuka",
+    ["Low Sodium", "Low Protein"],
+    ["224 kcal", "1.12 kcal/ml", "9.5 g", "8.0 g", "29.4 g", "155 mg", "254 mg", "127 mg", "200 ml"],
+    "Standard Dilution: 4 leveled scoops (50g) in 185ml water"
+  ),
+  createPreparation(
+    "HINEX ST PLUS",
+    "Probiotic",
+    "Otsuka",
+    ["Low Sodium", "Low Protein"],
+    ["220 kcal", "1.10 kcal/ml", "11.0 g", "7.5 g", "28.3 g", "162 mg", "267 mg", "125 mg", "200 ml"],
+    "Standard Dilution: 4 leveled scoops (50g) in 180ml water"
+  ),
+  createPreparation(
+    "KABIPRO",
+    "KABIPRO",
+    "Fresenius Kabi",
+    ["Low Sodium", "Low Protein", "Low Cal Density"],
+    ["88 kcal", "0.40 kcal/ml", "10.1 g", "0.7 g", "10.8 g", "55 mg", "164 mg", "94 mg", "220 ml"],
+    "Standard Dilution: 2 leveled scoops (24g) in 200ml water"
+  ),
+  createPreparation(
+    "PEPTAMEN ADULT",
+    "Peptide",
+    "Nestle-Dr Reddy",
+    ["Low Protein"],
+    ["258 kcal", "1.03 kcal/ml", "10.1 g", "9.9 g", "32.2 g", "204 mg", "374 mg", "140 mg", "250 ml"],
+    "Standard Dilution: 7 leveled scoops (55g) in 210ml water"
+  ),
+  createPreparation(
+    "PentaSure 2.0",
+    "High Calorie, High Protein",
+    "Pentasure",
+    ["Low Sodium", "Fluid Restriction", "High Protein", "High Cal Density"],
+    ["243 kcal", "2.25 kcal/ml", "18.7 g", "8.6 g", "23.2 g", "68 mg", "113 mg", "81 mg", "108 ml"],
+    "Standard Dilution: 4 level scoops (54g) in 65 ml water"
+  ),
+  createPreparation(
+    "PentaSure CRITIPEP",
+    "Peptide diet",
+    "Pentasure",
+    ["Low Sodium", "Low Protein"],
+    ["99 kcal", "0.97 kcal/ml", "4.0 g", "4.5 g", "10.5 g", "30 mg", "128 mg", "70 mg", "102 ml"],
+    "Standard Dilution: 2 heaped scoops (20g) in 85ml water"
+  ),
+  createPreparation(
+    "PentaSure DLS",
+    "Dialysis",
+    "Pentasure",
+    ["Low Sodium", "Fluid Restriction", "Low Protein", "High Cal Density"],
+    ["207 kcal", "2.07 kcal/ml", "10.5 g", "10.4 g", "17.8 g", "59 mg", "99 mg", "60 mg", "100 ml"],
+    "Standard Dilution: 4 heaped scoops (42g) in 66ml water"
+  ),
+  createPreparation(
+    "PentaSure DM",
+    "Diabetes",
+    "Pentasure",
+    ["Low Sodium", "Low Protein"],
+    ["229 kcal", "0.97 kcal/ml", "11.3 g", "9.3 g", "25.0 g", "150 mg", "225 mg", "163 mg", "237 ml"],
+    "Standard Dilution: 4 level scoops (50g) in 200ml water"
+  ),
+  createPreparation(
+    "PentaSure Hepatic",
+    "Hepatic",
+    "Pentasure",
+    ["Low Sodium", "Low Protein", "High Cal Density"],
+    ["207 kcal", "1.50 kcal/ml", "8.8 g", "4.5 g", "32.5 g", "120 mg", "180 mg", "100 mg", "138 ml"],
+    "Standard Dilution: 4 heaped scoops (50g) in 100ml water"
+  ),
+  createPreparation(
+    "PentaSure HP",
+    "High Protein",
+    "Pentasure",
+    ["Low Sodium"],
+    ["116 kcal", "0.81 kcal/ml", "13.5 g", "1.0 g", "13.2 g", "180 mg", "240 mg", "171 mg", "144 ml"],
+    "Standard Dilution: 2 level scoops (30g) in 120ml water"
+  ),
+  createPreparation(
+    "PentaSure Renal",
+    "Low protein",
+    "Pentasure",
+    ["Low Sodium", "Low Protein", "High Cal Density"],
+    ["199 kcal", "1.99 kcal/ml", "5.5 g", "9.2 g", "23.5 g", "42 mg", "50 mg", "63 mg", "100 ml"],
+    "Standard Dilution: 4 heaped scoops (42g) in 66ml water"
+  ),
+  createPreparation(
+    "RESOURCE Diabetic",
+    "Diabetic",
+    "Nestle-Dr Reddy",
+    ["Low Sodium", "Low Protein"],
+    ["214 kcal", "0.92 kcal/ml", "12.0 g", "8.0 g", "25.1 g", "108 mg", "274 mg", "150 mg", "231 ml"],
+    "Standard Dilution: 6 leveled scoops (50g) in 190ml water"
+  ),
+  createPreparation(
+    "RESOURCE Dialysis",
+    "Dialysis",
+    "Nestle-Dr Reddy",
+    ["Low Sodium", "High Cal Density"],
+    ["217 kcal", "1.56 kcal/ml", "13.5 g", "8.2 g", "23.6 g", "73 mg", "173 mg", "116 mg", "139 ml"],
+    "Standard Dilution: 6 leveled scoops (50g) in 90ml water"
+  ),
+  createPreparation(
+    "RESOURCE HP",
+    "High Protein",
+    "Nestle-Dr Reddy",
+    ["Low Sodium", "High Protein"],
+    ["174 kcal", "0.87 kcal/ml", "21.0 g", "1.0 g", "21.3 g", "105 mg", "0 mg", "215 mg", "200 ml"],
+    "Standard Dilution: 6 leveled scoops (50g) in 150ml water"
+  ),
+  createPreparation(
+    "RESOURCE OPTI",
+    "Standard",
+    "Nestle-Dr Reddy",
+    ["Low Sodium", "Low Protein"],
+    ["215 kcal", "0.95 kcal/ml", "10.0 g", "7.5 g", "28.0 g", "113 mg", "237 mg", "150 mg", "225 ml"],
+    "Standard Dilution: 6 leveled scoops (50g) in 190ml water"
+  ),
+  createPreparation(
+    "RESOURCE Renal",
+    "Low Protein",
+    "Nestle-Dr Reddy",
+    ["Low Sodium", "Low Protein", "High Cal Density"],
+    ["224 kcal", "1.61 kcal/ml", "6.0 g", "8.0 g", "33.2 g", "71 mg", "150 mg", "72 mg", "139 ml"],
+    "Standard Dilution: 6 leveled scoops (50g) in 90ml water"
+  ),
 ];
 
 const pathwayState = {
@@ -81,8 +331,14 @@ function hideStage(stageEl) {
   stageEl.classList.add("hidden");
 }
 
+function getTagClass(tag) {
+  return `tag-${tag.toLowerCase().replace(/\s+/g, "-")}`;
+}
+
 function renderEnteralPreparations() {
   productGrid.innerHTML = enteralPreparations
+    .slice()
+    .sort((first, second) => first.name.localeCompare(second.name))
     .map(
       (product) => `
         <article class="product-card">
@@ -92,7 +348,7 @@ function renderEnteralPreparations() {
               <p>${product.type} &bull; ${product.manufacturer}</p>
             </div>
             <div class="product-tags">
-              ${product.tags.map((tag) => `<span>${tag}</span>`).join("")}
+              ${product.tags.map((tag) => `<span class="${getTagClass(tag)}">${tag}</span>`).join("")}
             </div>
           </div>
           <div class="constituent-grid">
@@ -646,6 +902,7 @@ function selectRoute(route) {
     resetEnteralPlanner();
   }
 
+  productLibrary.classList.remove("hidden");
   revealStage(stepResult);
 }
 
@@ -666,6 +923,7 @@ function resetFlow() {
   patientDataResults.classList.add("hidden");
   enteralPlanner.classList.add("hidden");
   enteralTargetControls.classList.add("hidden");
+  productLibrary.classList.add("hidden");
   pathwayState.patient = null;
   pathwayState.nutrition = null;
   pathwayState.gi = null;
@@ -699,6 +957,7 @@ clearPatientData.addEventListener("click", () => {
   completeAssessment.classList.add("hidden");
   enteralPlanner.classList.add("hidden");
   enteralTargetControls.classList.add("hidden");
+  productLibrary.classList.add("hidden");
   hideStage(stepNutrition);
   hideStage(stepGi);
   hideStage(stepBranches);
@@ -729,6 +988,7 @@ resetNutrition.addEventListener("click", () => {
   completeAssessment.classList.add("hidden");
   enteralPlanner.classList.add("hidden");
   enteralTargetControls.classList.add("hidden");
+  productLibrary.classList.add("hidden");
   hideStage(stepGi);
   hideStage(stepBranches);
   hideStage(stepResult);
