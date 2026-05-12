@@ -1,8 +1,13 @@
 const stepStart = document.getElementById("step-start");
+const stepPatient = document.getElementById("step-patient");
 const stepNutrition = document.getElementById("step-nutrition");
 const stepGi = document.getElementById("step-gi");
 const stepBranches = document.getElementById("step-branches");
 const stepResult = document.getElementById("step-result");
+
+const patientDataForm = document.getElementById("patient-data-form");
+const patientDataResults = document.getElementById("patient-data-results");
+const clearPatientData = document.getElementById("clear-patient-data");
 
 const nutritionForm = document.getElementById("nutrition-form");
 const nutritionResults = document.getElementById("nutrition-results");
@@ -18,10 +23,23 @@ const restart = document.getElementById("restart");
 const resultTitle = document.getElementById("result-title");
 const resultText = document.getElementById("result-text");
 const resultContext = document.getElementById("result-context");
+const enteralPlanner = document.getElementById("enteral-planner");
+const enteralDayForm = document.getElementById("enteral-day-form");
+const enteralTargetControls = document.getElementById("enteral-target-controls");
+const enteralTargetResults = document.getElementById("enteral-target-results");
+const enteralIbw = document.getElementById("enteral-ibw");
+const caloriePercent = document.getElementById("calorie-percent");
+const caloriePercentValue = document.getElementById("calorie-percent-value");
+const proteinTarget = document.getElementById("protein-target");
+const proteinTargetValue = document.getElementById("protein-target-value");
+const calorieTarget = document.getElementById("calorie-target");
+const calorieTargetValue = document.getElementById("calorie-target-value");
 
 const pathwayState = {
+  patient: null,
   nutrition: null,
   gi: null,
+  enteralPlan: null,
 };
 
 function getNumber(id) {
@@ -39,6 +57,86 @@ function revealStage(stageEl) {
 
 function hideStage(stageEl) {
   stageEl.classList.add("hidden");
+}
+
+function roundToOneDecimal(value) {
+  return Math.round(value * 10) / 10;
+}
+
+function getHeightInCentimeters() {
+  const height = getNumber("patient-height");
+  const unit = getSelectValue("height-unit");
+  return unit === "in" ? height * 2.54 : height;
+}
+
+function calculatePatientBodyWeights() {
+  const sex = getSelectValue("patient-sex");
+  const heightCm = getHeightInCentimeters();
+  const heightIn = heightCm / 2.54;
+  const actualWeight = getNumber("actual-weight");
+  const baseWeight = sex === "male" ? 50 : 45.5;
+  const idealBodyWeight = baseWeight + 2.3 * (heightIn - 60);
+  const predictedBodyWeight = baseWeight + 0.91 * (heightCm - 152.4);
+  const bmi = actualWeight > 0 ? actualWeight / (heightCm / 100) ** 2 : null;
+
+  pathwayState.patient = {
+    sex,
+    heightCm: roundToOneDecimal(heightCm),
+    heightIn: roundToOneDecimal(heightIn),
+    idealBodyWeight: roundToOneDecimal(idealBodyWeight),
+    predictedBodyWeight: roundToOneDecimal(predictedBodyWeight),
+    bmi: bmi ? roundToOneDecimal(bmi) : null,
+  };
+
+  return pathwayState.patient;
+}
+
+function copyBmiToEmptyNutritionFields(bmi) {
+  if (!bmi) {
+    return;
+  }
+
+  ["bmi", "must-bmi", "glim-bmi"].forEach((id) => {
+    const input = document.getElementById(id);
+    if (input && !input.value) {
+      input.value = bmi;
+    }
+  });
+}
+
+function renderPatientDataResults(patient) {
+  copyBmiToEmptyNutritionFields(patient.bmi);
+
+  const bmiText = patient.bmi
+    ? `<p><strong>BMI:</strong> ${patient.bmi} kg/m2 from actual body weight.</p>`
+    : "<p><strong>BMI:</strong> Add actual body weight to calculate BMI.</p>";
+
+  patientDataResults.innerHTML = `
+    <h3>Calculated ICU Body Weight</h3>
+    <div class="mini-result-grid">
+      <article class="mini-result">
+        <h3>Ideal Body Weight</h3>
+        <p class="score">${patient.idealBodyWeight}<span> kg</span></p>
+        <p>Devine-style IBW estimate using sex and height.</p>
+      </article>
+      <article class="mini-result">
+        <h3>Predicted Body Weight</h3>
+        <p class="score">${patient.predictedBodyWeight}<span> kg</span></p>
+        <p>ARDSNet-style PBW equation using sex and height.</p>
+      </article>
+    </div>
+    <p><strong>Height used:</strong> ${patient.heightCm} cm (${patient.heightIn} in).</p>
+    ${bmiText}
+    <p class="summary">Patient data saved. Continue with the existing nutrition assessment below.</p>
+  `;
+  patientDataResults.classList.remove("hidden");
+}
+
+function resetPatientData() {
+  patientDataForm.reset();
+  patientDataResults.innerHTML = "";
+  patientDataResults.classList.add("hidden");
+  pathwayState.patient = null;
 }
 
 function scoreNutric() {
@@ -168,6 +266,52 @@ function scoreMust() {
   };
 }
 
+function scoreGlim() {
+  const age = getNumber("glim-age");
+  const bmi = getNumber("glim-bmi");
+  const weightLoss = getNumber("glim-weight-loss");
+  const timeframe = getSelectValue("glim-weight-loss-timeframe");
+  const muscleMass = getNumber("glim-muscle");
+  const reducedIntakeOrAssimilation = getNumber("glim-intake") === 1;
+  const inflammation = getNumber("glim-inflammation") === 1;
+
+  const weightLossModerate =
+    timeframe === "six-months" ? weightLoss >= 5 : weightLoss >= 10;
+  const weightLossSevere =
+    timeframe === "six-months" ? weightLoss > 10 : weightLoss > 20;
+  const lowBmiModerate = age >= 70 ? bmi < 22 : bmi < 20;
+  const lowBmiSevere = age >= 70 ? bmi < 20 : bmi < 18.5;
+  const phenotypicCriterion = weightLossModerate || lowBmiModerate || muscleMass >= 1;
+  const severePhenotypicCriterion = weightLossSevere || lowBmiSevere || muscleMass === 2;
+  const etiologicCriterion = reducedIntakeOrAssimilation || inflammation;
+  const diagnosisMet = phenotypicCriterion && etiologicCriterion;
+
+  let score = "No diagnosis";
+  let interpretation =
+    "GLIM diagnosis not met; requires at least one phenotypic and one etiologic criterion.";
+  let risk = "low";
+
+  if (diagnosisMet && severePhenotypicCriterion) {
+    score = "Stage 2";
+    interpretation =
+      "GLIM severe malnutrition pattern; prioritize nutrition intervention and monitoring.";
+    risk = "high";
+  } else if (diagnosisMet) {
+    score = "Stage 1";
+    interpretation =
+      "GLIM moderate malnutrition pattern; start targeted nutrition plan and reassess.";
+    risk = "moderate";
+  }
+
+  return {
+    name: "GLIM",
+    score,
+    max: "criteria",
+    interpretation,
+    risk,
+  };
+}
+
 function scoreSga() {
   const fields = [
     "sga-weight",
@@ -202,7 +346,7 @@ function scoreSga() {
 }
 
 function calculateNutrition() {
-  const scores = [scoreNutric(), scoreNrs2002(), scoreMust(), scoreSga()];
+  const scores = [scoreNutric(), scoreNrs2002(), scoreMust(), scoreGlim(), scoreSga()];
   const highRiskCount = scores.filter((score) => score.risk === "high").length;
   const summary =
     highRiskCount > 0
@@ -324,6 +468,100 @@ function updateRecommendedRoute(recommendation) {
   }
 }
 
+function getSuggestedCaloriePercent(day) {
+  if (day <= 1) {
+    return 25;
+  }
+
+  if (day === 2) {
+    return 50;
+  }
+
+  if (day === 3) {
+    return 75;
+  }
+
+  return 100;
+}
+
+function getEstimatedIdealBodyWeight() {
+  return pathwayState.patient?.idealBodyWeight || pathwayState.patient?.idealBodyWeightKg || null;
+}
+
+function prepareEnteralPlanner() {
+  const estimatedIdealBodyWeight = getEstimatedIdealBodyWeight();
+
+  enteralPlanner.classList.remove("hidden");
+  enteralDayForm.reset();
+  enteralTargetControls.classList.add("hidden");
+  enteralTargetResults.innerHTML = "";
+  pathwayState.enteralPlan = null;
+
+  if (estimatedIdealBodyWeight) {
+    enteralIbw.value = estimatedIdealBodyWeight;
+  }
+}
+
+function resetEnteralPlanner() {
+  enteralPlanner.classList.add("hidden");
+  enteralTargetControls.classList.add("hidden");
+  enteralDayForm.reset();
+  enteralTargetResults.innerHTML = "";
+  pathwayState.enteralPlan = null;
+}
+
+function updateEnteralTargetDisplay() {
+  const day = getNumber("icu-day");
+  const idealBodyWeight = getNumber("enteral-ibw");
+
+  if (!day || !idealBodyWeight) {
+    return;
+  }
+
+  const calorieDeliveryPercent = Number(caloriePercent.value);
+  const proteinPerKg = Number(proteinTarget.value);
+  const caloriesPerKg = Number(calorieTarget.value);
+  const proteinGrams = Math.round(idealBodyWeight * proteinPerKg * 10) / 10;
+  const fullCalories = Math.round(idealBodyWeight * caloriesPerKg);
+  const dayCalories = Math.round(fullCalories * (calorieDeliveryPercent / 100));
+
+  caloriePercentValue.textContent = `${calorieDeliveryPercent}%`;
+  proteinTargetValue.textContent = proteinPerKg.toFixed(1);
+  calorieTargetValue.textContent = caloriesPerKg.toString();
+
+  pathwayState.enteralPlan = {
+    day,
+    idealBodyWeight,
+    calorieDeliveryPercent,
+    proteinPerKg,
+    caloriesPerKg,
+    proteinGrams,
+    fullCalories,
+    dayCalories,
+  };
+
+  enteralTargetResults.innerHTML = `
+    <div class="target-number-grid">
+      <article>
+        <span>Protein target</span>
+        <strong>${proteinGrams} g/day</strong>
+        <small>${proteinPerKg.toFixed(1)} g/kg/day x IBW ${idealBodyWeight} kg</small>
+      </article>
+      <article>
+        <span>Full calorie requirement</span>
+        <strong>${fullCalories} kcal/day</strong>
+        <small>${caloriesPerKg} kcal/kg/day x IBW ${idealBodyWeight} kg</small>
+      </article>
+      <article>
+        <span>ICU day ${day} calorie target</span>
+        <strong>${dayCalories} kcal/day</strong>
+        <small>${calorieDeliveryPercent}% of full calorie requirement</small>
+      </article>
+    </div>
+    <p class="summary">Suggested day-based advancement: day 1 about 25%, day 2 about 50%, day 3 about 75%, and day 4 onward up to 100% if tolerated.</p>
+  `;
+}
+
 function selectRoute(route) {
   const gi = pathwayState.gi;
   const nutrition = pathwayState.nutrition;
@@ -347,28 +585,75 @@ function selectRoute(route) {
     }</p>
   `;
 
+  if (route === "enteral") {
+    prepareEnteralPlanner();
+  } else {
+    resetEnteralPlanner();
+  }
+
   revealStage(stepResult);
 }
 
 function resetFlow() {
-  [stepNutrition, stepGi, stepBranches, stepResult].forEach(hideStage);
+  [stepPatient, stepNutrition, stepGi, stepBranches, stepResult].forEach(hideStage);
   [nutritionResults, giResults, completeAssessment].forEach((element) =>
     element.classList.add("hidden")
   );
+  patientDataForm.reset();
   nutritionForm.reset();
   giForm.reset();
+  enteralDayForm.reset();
+  patientDataResults.innerHTML = "";
   nutritionResults.innerHTML = "";
   giResults.innerHTML = "";
   resultContext.innerHTML = "";
+  enteralTargetResults.innerHTML = "";
+  patientDataResults.classList.add("hidden");
+  enteralPlanner.classList.add("hidden");
+  enteralTargetControls.classList.add("hidden");
+  pathwayState.patient = null;
   pathwayState.nutrition = null;
   pathwayState.gi = null;
+  pathwayState.enteralPlan = null;
   [enteralChoice, parenteralChoice].forEach((button) =>
     button.classList.remove("recommended")
   );
 }
 
 stepStart.addEventListener("click", () => {
+  revealStage(stepPatient);
+});
+
+patientDataForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  renderPatientDataResults(calculatePatientBodyWeights());
   revealStage(stepNutrition);
+});
+
+clearPatientData.addEventListener("click", () => {
+  resetPatientData();
+  nutritionForm.reset();
+  giForm.reset();
+  enteralDayForm.reset();
+  nutritionResults.innerHTML = "";
+  giResults.innerHTML = "";
+  resultContext.innerHTML = "";
+  enteralTargetResults.innerHTML = "";
+  nutritionResults.classList.add("hidden");
+  giResults.classList.add("hidden");
+  completeAssessment.classList.add("hidden");
+  enteralPlanner.classList.add("hidden");
+  enteralTargetControls.classList.add("hidden");
+  hideStage(stepNutrition);
+  hideStage(stepGi);
+  hideStage(stepBranches);
+  hideStage(stepResult);
+  pathwayState.nutrition = null;
+  pathwayState.gi = null;
+  pathwayState.enteralPlan = null;
+  [enteralChoice, parenteralChoice].forEach((button) =>
+    button.classList.remove("recommended")
+  );
 });
 
 nutritionForm.addEventListener("submit", (event) => {
@@ -379,17 +664,22 @@ nutritionForm.addEventListener("submit", (event) => {
 resetNutrition.addEventListener("click", () => {
   nutritionForm.reset();
   giForm.reset();
+  enteralDayForm.reset();
   nutritionResults.innerHTML = "";
   giResults.innerHTML = "";
   resultContext.innerHTML = "";
+  enteralTargetResults.innerHTML = "";
   nutritionResults.classList.add("hidden");
   giResults.classList.add("hidden");
   completeAssessment.classList.add("hidden");
+  enteralPlanner.classList.add("hidden");
+  enteralTargetControls.classList.add("hidden");
   hideStage(stepGi);
   hideStage(stepBranches);
   hideStage(stepResult);
   pathwayState.nutrition = null;
   pathwayState.gi = null;
+  pathwayState.enteralPlan = null;
   [enteralChoice, parenteralChoice].forEach((button) =>
     button.classList.remove("recommended")
   );
@@ -406,6 +696,17 @@ giForm.addEventListener("submit", (event) => {
 
 enteralChoice.addEventListener("click", () => selectRoute("enteral"));
 parenteralChoice.addEventListener("click", () => selectRoute("parenteral"));
+
+enteralDayForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  caloriePercent.value = getSuggestedCaloriePercent(getNumber("icu-day"));
+  enteralTargetControls.classList.remove("hidden");
+  updateEnteralTargetDisplay();
+});
+
+[caloriePercent, proteinTarget, calorieTarget, enteralIbw].forEach((input) => {
+  input.addEventListener("input", updateEnteralTargetDisplay);
+});
 
 restart.addEventListener("click", () => {
   resetFlow();

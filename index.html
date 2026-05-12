@@ -24,6 +24,56 @@
           <small>Click to begin assessment</small>
         </button>
 
+        <div id="step-patient" class="stage hidden">
+          <div class="connector connector-down"></div>
+          <section class="node node-card patient-data-card">
+            <div class="stage-heading">
+              <span class="badge">Patient Data</span>
+              <div>
+                <h2>ICU Patient Setup</h2>
+                <p>
+                  Enter height in centimeters or inches to calculate ideal body
+                  weight and predicted body weight before the pathway continues.
+                </p>
+              </div>
+            </div>
+
+            <form id="patient-data-form" class="patient-data-grid">
+              <label>
+                Sex used for equation
+                <select id="patient-sex" required>
+                  <option value="">Select</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </label>
+              <label>
+                Height
+                <input id="patient-height" type="number" min="36" max="260" step="0.1" required />
+              </label>
+              <label>
+                Height unit
+                <select id="height-unit" required>
+                  <option value="cm">Centimeters</option>
+                  <option value="in">Inches</option>
+                </select>
+              </label>
+              <label>
+                Actual body weight, kg (optional)
+                <input id="actual-weight" type="number" min="1" max="400" step="0.1" />
+              </label>
+              <div class="form-actions">
+                <button class="action-btn" type="submit">Calculate IBW / PBW</button>
+                <button id="clear-patient-data" class="action-btn secondary" type="button">
+                  Clear Patient Data
+                </button>
+              </div>
+            </form>
+
+            <div id="patient-data-results" class="result-panel hidden" aria-live="polite"></div>
+          </section>
+        </div>
+
         <div id="step-nutrition" class="stage hidden">
           <div class="connector connector-down"></div>
           <section class="node node-card">
@@ -113,6 +163,56 @@
                     <option value="">Select</option>
                     <option value="0">No acute disease effect</option>
                     <option value="2">No nutritional intake for &gt;5 days or likely &gt;5 days</option>
+                  </select>
+                </label>
+              </fieldset>
+
+              <fieldset class="tool-card">
+                <legend>GLIM</legend>
+                <label>
+                  Age
+                  <input id="glim-age" type="number" min="0" max="120" required />
+                </label>
+                <label>
+                  BMI
+                  <input id="glim-bmi" type="number" min="8" max="60" step="0.1" required />
+                </label>
+                <label>
+                  Non-volitional weight loss (%)
+                  <input id="glim-weight-loss" type="number" min="0" max="80" step="0.1" required />
+                </label>
+                <label>
+                  Weight-loss timeframe
+                  <select id="glim-weight-loss-timeframe" required>
+                    <option value="">Select</option>
+                    <option value="six-months">Within 6 months</option>
+                    <option value="beyond-six-months">Beyond 6 months</option>
+                  </select>
+                </label>
+                <label>
+                  Reduced muscle mass
+                  <select id="glim-muscle" required>
+                    <option value="">Select</option>
+                    <option value="0">No reduction</option>
+                    <option value="1">Mild or moderate reduction</option>
+                    <option value="2">Severe reduction</option>
+                  </select>
+                </label>
+                <label>
+                  Reduced food intake or assimilation
+                  <select id="glim-intake" required>
+                    <option value="">Select</option>
+                    <option value="0">No</option>
+                    <option value="1">Reduced intake</option>
+                    <option value="1">Reduced assimilation / malabsorption</option>
+                  </select>
+                </label>
+                <label>
+                  Disease burden / inflammation
+                  <select id="glim-inflammation" required>
+                    <option value="">Select</option>
+                    <option value="0">No</option>
+                    <option value="1">Yes</option>
                   </select>
                 </label>
               </fieldset>
@@ -302,6 +402,57 @@
             <h2 id="result-title">Pathway Selected</h2>
             <p id="result-text"></p>
             <div id="result-context" class="route-context"></div>
+            <section id="enteral-planner" class="enteral-planner hidden" aria-labelledby="enteral-planner-title">
+              <h3 id="enteral-planner-title">Enteral Nutrition Target Planner</h3>
+              <p>
+                Enter the ICU admission day and ideal body weight to calculate
+                enteral calorie and protein targets.
+              </p>
+
+              <form id="enteral-day-form" class="enteral-day-form">
+                <label>
+                  Current ICU day since admission
+                  <input id="icu-day" type="number" min="1" max="60" step="1" required />
+                </label>
+                <label>
+                  Ideal body weight estimated earlier (kg)
+                  <input id="enteral-ibw" type="number" min="1" max="300" step="0.1" required />
+                </label>
+                <button id="set-icu-day" class="action-btn" type="submit">
+                  Set ICU Day Target
+                </button>
+              </form>
+
+              <div id="enteral-target-controls" class="enteral-target-controls hidden">
+                <label class="range-control">
+                  <span class="range-heading">
+                    Day-based total calorie target
+                    <strong id="calorie-percent-value">25%</strong>
+                  </span>
+                  <input id="calorie-percent" type="range" min="10" max="100" step="5" value="25" />
+                </label>
+
+                <div class="target-slider-grid">
+                  <label class="range-control">
+                    <span class="range-heading">
+                      Protein requirement target
+                      <strong><span id="protein-target-value">1.2</span> g/kg/day</strong>
+                    </span>
+                    <input id="protein-target" type="range" min="0.3" max="2.5" step="0.1" value="1.2" />
+                  </label>
+
+                  <label class="range-control">
+                    <span class="range-heading">
+                      Calorie requirement target
+                      <strong><span id="calorie-target-value">25</span> kcal/kg/day</strong>
+                    </span>
+                    <input id="calorie-target" type="range" min="15" max="30" step="1" value="25" />
+                  </label>
+                </div>
+
+                <div id="enteral-target-results" class="target-summary" aria-live="polite"></div>
+              </div>
+            </section>
             <button id="restart" class="action-btn secondary" type="button">Restart Flow</button>
           </section>
         </div>
