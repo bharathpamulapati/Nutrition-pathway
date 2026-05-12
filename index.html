@@ -473,6 +473,75 @@
         </div>
 
         <div id="product-grid" class="product-grid" aria-live="polite"></div>
+
+        <section class="feed-configurator" aria-labelledby="feed-config-title">
+          <div class="section-heading compact-heading">
+            <p class="eyebrow">Feed setup</p>
+            <h2 id="feed-config-title">Configure Feeds</h2>
+            <p>
+              Select a product, dilution, feeding duration, and infusion rate to
+              estimate delivered calories, protein, volume, and feed schedule.
+            </p>
+          </div>
+
+          <div class="feed-config-card">
+            <div class="feed-controls">
+              <label>
+                Selected product
+                <select id="feed-product"></select>
+              </label>
+              <label>
+                Dilution type
+                <select id="feed-dilution">
+                  <option value="0.5">Half dilution</option>
+                  <option value="1" selected>Standard dilution</option>
+                  <option value="2">Double dilution</option>
+                </select>
+              </label>
+              <label>
+                Feeding duration
+                <select id="feed-hours">
+                  <option value="18">18 hours (6AM-12AM)</option>
+                  <option value="24">24 hours (Continuous)</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="range-control feed-rate-control">
+              <span class="range-heading">
+                Feeding rate
+                <strong><span id="feed-rate-value">20</span> mL/hour</strong>
+              </span>
+              <input id="feed-rate" type="range" min="20" max="150" step="5" value="20" />
+            </label>
+
+            <div class="nested-tile">
+              <h3>Feed Configuration</h3>
+              <div id="feed-config-summary" class="summary-tile-grid four-up"></div>
+            </div>
+
+            <div class="nested-tile">
+              <h3>Target Analysis</h3>
+              <div id="feed-target-analysis" class="summary-tile-grid"></div>
+            </div>
+
+            <div class="nested-tile">
+              <h3>Feed Schedule</h3>
+              <div id="feed-schedule" class="summary-tile-grid six-up"></div>
+              <p id="feed-instruction" class="summary"></p>
+            </div>
+
+            <button id="generate-prescription" class="prescription-button" type="button">
+              Generate Diet Prescription
+            </button>
+
+            <section
+              id="diet-prescription"
+              class="diet-prescription hidden"
+              aria-live="polite"
+            ></section>
+          </div>
+        </section>
       </section>
 
       <p class="disclaimer">

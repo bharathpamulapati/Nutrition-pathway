@@ -36,6 +36,17 @@ const calorieTarget = document.getElementById("calorie-target");
 const calorieTargetValue = document.getElementById("calorie-target-value");
 const productLibrary = document.getElementById("product-library");
 const productGrid = document.getElementById("product-grid");
+const feedProduct = document.getElementById("feed-product");
+const feedDilution = document.getElementById("feed-dilution");
+const feedHours = document.getElementById("feed-hours");
+const feedRate = document.getElementById("feed-rate");
+const feedRateValue = document.getElementById("feed-rate-value");
+const feedConfigSummary = document.getElementById("feed-config-summary");
+const feedTargetAnalysis = document.getElementById("feed-target-analysis");
+const feedSchedule = document.getElementById("feed-schedule");
+const feedInstruction = document.getElementById("feed-instruction");
+const generatePrescription = document.getElementById("generate-prescription");
+const dietPrescription = document.getElementById("diet-prescription");
 
 function createPreparation(
   name,
@@ -106,11 +117,16 @@ const enteralPreparations = [
   createPreparation("RESOURCE Renal", "Low Protein", "Nestle-Dr Reddy", ["Low Sodium", "Low Protein", "High Cal Density"], "224 kcal", "1.61 kcal/ml", "6.0 g", "8.0 g", "33.2 g", "71 mg", "150 mg", "72 mg", "139 ml", "Standard Dilution: 6 leveled scoops (50g) in 90ml water"),
 ];
 
+let selectedFeedProductName = null;
+
 const pathwayState = {
   patient: null,
   nutrition: null,
   gi: null,
   enteralPlan: null,
+  feedConfig: null,
+  dietPrescription: null,
+  dietPrescriptionText: null,
 };
 
 function getNumber(id) {
@@ -170,13 +186,64 @@ function getTagClass(tag) {
   return `tag-${tag.toLowerCase().replace(/\s+/g, "-")}`;
 }
 
-function renderEnteralPreparations() {
-  productGrid.innerHTML = enteralPreparations
+function getSortedPreparations() {
+  return enteralPreparations
     .slice()
-    .sort((first, second) => first.name.localeCompare(second.name))
+    .sort((first, second) => first.name.localeCompare(second.name));
+}
+
+function getSelectedFeedProduct() {
+  return (
+    enteralPreparations.find((product) => product.name === selectedFeedProductName) ||
+    getSortedPreparations()[0]
+  );
+}
+
+function parseConstituentNumber(value) {
+  return Number.parseFloat(value);
+}
+
+function getConstituentNumber(product, label) {
+  const item = product.constituents.find((constituent) => constituent.label === label);
+  return item ? parseConstituentNumber(item.value) : 0;
+}
+
+function formatNumber(value, decimals = 1) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return "Not set";
+  }
+
+  return Number.isInteger(numericValue)
+    ? numericValue.toString()
+    : numericValue.toFixed(decimals);
+}
+
+function formatRange(min, max, unit = "") {
+  const suffix = unit ? ` ${unit}` : "";
+  return `${formatNumber(min)}-${formatNumber(max)}${suffix}`;
+}
+
+function getDilutionLabel(multiplier) {
+  if (multiplier === 0.5) {
+    return "Half standard";
+  }
+
+  if (multiplier === 2) {
+    return "Double standard";
+  }
+
+  return "Standard";
+}
+
+function renderEnteralPreparations() {
+  productGrid.innerHTML = getSortedPreparations()
     .map(
       (product) => `
-        <article class="product-card">
+        <article class="product-card ${
+          product.name === selectedFeedProductName ? "selected-product" : ""
+        }" data-product-name="${product.name}">
           <div class="product-card-header">
             <div>
               <h3>${product.name}</h3>
@@ -205,6 +272,383 @@ function renderEnteralPreparations() {
       `
     )
     .join("");
+}
+
+function renderFeedProductOptions() {
+  const sortedProducts = getSortedPreparations();
+
+  if (!selectedFeedProductName && sortedProducts.length) {
+    selectedFeedProductName = sortedProducts[0].name;
+  }
+
+  feedProduct.innerHTML = sortedProducts
+    .map(
+      (product) =>
+        `<option value="${product.name}" ${
+          product.name === selectedFeedProductName ? "selected" : ""
+        }>${product.name}</option>`
+    )
+    .join("");
+}
+
+function createSummaryTile(label, value, detail = "") {
+  return `
+    <article class="summary-metric-tile">
+      <span>${label}</span>
+      <strong>${value}</strong>
+      ${detail ? `<small>${detail}</small>` : ""}
+    </article>
+  `;
+}
+
+function getFeedConfigurationData() {
+  const selectedProduct = getSelectedFeedProduct();
+  const dilutionMultiplier = Number(feedDilution.value);
+  const hours = Number(feedHours.value);
+  const rate = Number(feedRate.value);
+  const baseCalDensity = getConstituentNumber(selectedProduct, "Cal Density");
+  const baseProtein = getConstituentNumber(selectedProduct, "Protein");
+  const baseVolume = getConstituentNumber(selectedProduct, "Total Volume");
+  const adjustedCalDensity = baseCalDensity * dilutionMultiplier;
+  const adjustedProteinPerMl = (baseProtein / baseVolume) * dilutionMultiplier;
+  const volumePerFeed = baseVolume / dilutionMultiplier;
+  const timePerFeed = volumePerFeed / rate;
+  const feedsPerDay = Math.ceil((rate * hours) / volumePerFeed);
+  const totalVolumePerDay = rate * hours;
+  const caloriesPerFeed = adjustedCalDensity * volumePerFeed;
+  const proteinPerFeed = adjustedProteinPerMl * volumePerFeed;
+  const deliveredCalories = adjustedCalDensity * totalVolumePerDay;
+  const deliveredProtein = adjustedProteinPerMl * totalVolumePerDay;
+  const calorieTarget = pathwayState.enteralPlan?.fullCalories || null;
+  const proteinRequired = pathwayState.enteralPlan?.proteinGrams || null;
+
+  return {
+    selectedProduct,
+    dilutionMultiplier,
+    dilutionLabel: getDilutionLabel(dilutionMultiplier),
+    hours,
+    rate,
+    baseCalDensity,
+    baseProtein,
+    baseVolume,
+    adjustedCalDensity,
+    adjustedProteinPerMl,
+    volumePerFeed,
+    timePerFeed,
+    feedsPerDay,
+    totalVolumePerDay,
+    caloriesPerFeed,
+    proteinPerFeed,
+    deliveredCalories,
+    deliveredProtein,
+    calorieTarget,
+    proteinRequired,
+  };
+}
+
+function updateFeedConfiguration() {
+  const feedConfig = getFeedConfigurationData();
+
+  pathwayState.feedConfig = feedConfig;
+  feedRateValue.textContent = feedConfig.rate;
+  feedConfigSummary.innerHTML = [
+    createSummaryTile("Dilution type", feedConfig.dilutionLabel),
+    createSummaryTile(
+      "Feeding hours",
+      `${feedConfig.hours} hours`,
+      feedConfig.hours === 18 ? "6AM-12AM" : "Continuous"
+    ),
+    createSummaryTile("Current rate", `${feedConfig.rate} mL/hour`),
+    createSummaryTile("Time per feed", `${formatNumber(feedConfig.timePerFeed)} hours`),
+  ].join("");
+
+  feedTargetAnalysis.innerHTML = [
+    createSummaryTile(
+      "Calorie target required",
+      feedConfig.calorieTarget ? `${Math.round(feedConfig.calorieTarget)} kcal/day` : "Set in planner",
+      feedConfig.calorieTarget
+        ? `${Math.round((feedConfig.deliveredCalories / feedConfig.calorieTarget) * 100)}% delivered`
+        : "Complete Enteral Nutrition Target Planner"
+    ),
+    createSummaryTile(
+      "Calories delivered",
+      `${Math.round(feedConfig.deliveredCalories)} kcal/day`,
+      `${feedConfig.selectedProduct.name} at ${formatNumber(feedConfig.adjustedCalDensity, 2)} kcal/mL`
+    ),
+    createSummaryTile(
+      "Protein target required",
+      feedConfig.proteinRequired ? `${formatNumber(feedConfig.proteinRequired)} g/day` : "Set in planner",
+      feedConfig.proteinRequired
+        ? `${Math.round((feedConfig.deliveredProtein / feedConfig.proteinRequired) * 100)}% delivered`
+        : "Complete Enteral Nutrition Target Planner"
+    ),
+    createSummaryTile(
+      "Protein delivered",
+      `${formatNumber(feedConfig.deliveredProtein)} g/day`,
+      `${formatNumber(feedConfig.adjustedProteinPerMl, 3)} g/mL`
+    ),
+  ].join("");
+
+  feedSchedule.innerHTML = [
+    createSummaryTile("Feeds per day", feedConfig.feedsPerDay),
+    createSummaryTile(
+      "Calories and protein per feed",
+      `${Math.round(feedConfig.caloriesPerFeed)} kcal`,
+      `${formatNumber(feedConfig.proteinPerFeed)} g protein`
+    ),
+    createSummaryTile("Volume per feed", `${Math.round(feedConfig.volumePerFeed)} mL`),
+    createSummaryTile("Total calories per day", `${Math.round(feedConfig.deliveredCalories)} kcal`),
+    createSummaryTile("Total protein per day", `${formatNumber(feedConfig.deliveredProtein)} g`),
+    createSummaryTile("Total feed volume per day", `${feedConfig.totalVolumePerDay} mL`),
+  ].join("");
+
+  feedInstruction.textContent = `Instruction: Prepare fresh feed every ${formatNumber(
+    feedConfig.timePerFeed
+  )} hours obtained at time per feed in feed configuration.`;
+
+  if (!dietPrescription.classList.contains("hidden")) {
+    renderDietPrescription(false);
+  }
+}
+
+function resetFeedConfiguration() {
+  const firstProduct = getSortedPreparations()[0];
+  selectedFeedProductName = firstProduct ? firstProduct.name : null;
+  feedDilution.value = "1";
+  feedHours.value = "18";
+  feedRate.value = "20";
+  dietPrescription.innerHTML = "";
+  dietPrescription.classList.add("hidden");
+  pathwayState.dietPrescription = null;
+  pathwayState.dietPrescriptionText = null;
+  renderFeedProductOptions();
+  renderEnteralPreparations();
+  updateFeedConfiguration();
+}
+
+function getPrescriptionPatientData() {
+  const heightCm = pathwayState.patient?.heightCm || roundToOneDecimal(getHeightInCentimeters());
+  const idealBodyWeight =
+    pathwayState.patient?.idealBodyWeight || Number(enteralIbw.value) || null;
+  const predictedBodyWeight = pathwayState.patient?.predictedBodyWeight || idealBodyWeight;
+
+  return {
+    heightCm,
+    idealBodyWeight,
+    predictedBodyWeight,
+    calculationWeight: predictedBodyWeight || idealBodyWeight || 0,
+  };
+}
+
+function renderDietPrescription(shouldScroll = true) {
+  const patient = getPrescriptionPatientData();
+  const feedConfig = pathwayState.feedConfig || getFeedConfigurationData();
+  const calculationWeight = patient.calculationWeight;
+  const proteinWeight = patient.idealBodyWeight || calculationWeight;
+  const calorieMin = calculationWeight * 25;
+  const calorieMax = calculationWeight * 30;
+  const proteinMin = proteinWeight * 1.2;
+  const proteinMax = proteinWeight * 1.5;
+  const proteinCaloriesMin = proteinMin * 4;
+  const proteinCaloriesMax = proteinMax * 4;
+  const totalCaloriesRequiredMin = calorieMin + proteinCaloriesMin;
+  const totalCaloriesRequiredMax = calorieMax + proteinCaloriesMax;
+  const dayThreeTargetMin = totalCaloriesRequiredMin * 0.7;
+  const dayThreeTargetMax = totalCaloriesRequiredMax * 0.7;
+  const extraProteinMin = Math.max(proteinMin - feedConfig.deliveredProtein, 0);
+  const extraProteinMax = Math.max(proteinMax - feedConfig.deliveredProtein, 0);
+  const extraSupplementation =
+    extraProteinMax > 0
+      ? `${formatRange(
+          extraProteinMin,
+          extraProteinMax,
+          "gm protein per day"
+        )} based on the 1.2-1.5 gm/kg/day target range`
+      : "No extra protein supplementation needed based on the 1.2-1.5 gm/kg/day target range";
+
+  pathwayState.dietPrescription = {
+    patient,
+    feedConfig,
+    calorieMin,
+    calorieMax,
+    proteinMin,
+    proteinMax,
+    totalCaloriesRequiredMin,
+    totalCaloriesRequiredMax,
+    extraProteinMin,
+    extraProteinMax,
+  };
+
+  pathwayState.dietPrescriptionText = `Enteral Nutrition Prescription :
+
+
+Measured height                        ~  ${formatNumber(patient.heightCm)} cm
+
+Estimated IBW                          :  ${formatNumber(patient.idealBodyWeight)} Kg
+
+Predicted body weight based calculation : 25-30 Kcal/kg/day = ${formatNumber(
+    calculationWeight
+  )} Kg x 25-30 = ${formatRange(calorieMin, calorieMax, "KCal per day")}
+
+Recommended protein intake : 1.2-1.5 gm/kg/day = ${formatNumber(
+    proteinWeight
+  )} Kg x 1.2-1.5 = ${formatRange(proteinMin, proteinMax, "grams of protein per day")}
+Calories from Protein              =  4Kcal per gm of protein = ${formatRange(
+    proteinCaloriesMin,
+    proteinCaloriesMax,
+    "KCal per day"
+  )}
+Total calories required (Calories from proteins to be added to total estimated) = ${formatRange(
+    totalCaloriesRequiredMin,
+    totalCaloriesRequiredMax,
+    "KCal per day"
+  )}
+
+Target is to meet at least 70% by day 3 = derived from 70% of total calories required = ${formatRange(
+    dayThreeTargetMin,
+    dayThreeTargetMax,
+    "KCal per day"
+  )}
+
+Enteral formula selected               : ${feedConfig.selectedProduct.name}
+Manufacturer recommended Standard dilution : ${feedConfig.selectedProduct.dilution}
+
+Instructions to Nurse:
+Dilution : ${feedConfig.dilutionLabel} with manufacturer recommended standard dilution (${feedConfig.selectedProduct.dilution}) and chosen rate of administration ${feedConfig.rate} mL per hour
+Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours (obtained at time per feed obtained in feed configuration )
+Shake feed in bag every ${formatNumber(feedConfig.timePerFeed)} hours (obtained at time per feed obtained in feed configuration )
+
+Total calories delivered               = ${Math.round(feedConfig.deliveredCalories)} KCal per day
+Total Protein delivered                = ${formatNumber(feedConfig.deliveredProtein)} gm per day
+Any extra supplementation needed       : ${extraSupplementation}
+Total volume from Enteral feed per day : ${feedConfig.totalVolumePerDay} mL
+
+Standard precautions to be followed while preparing feeds: (same for every prescription)
+
+* All personal protective equipment on
+* Wash hands with soap for about 40-60 seconds
+* Use sterile plastic apron and hand care gloves while preparing the feed
+* Prepare feed as per prescription
+* After mixing thoroughly put the preparation into feeding bag
+* Confirm position of Ryles tube/Freka tube with hissing sound in epigastric area before starting feeds (If any doubt - inform the consultant immediately)
+* Start feed at prescribed rate only
+* Whenever a patient is in NBM, please confirm with ICU consultant about need for starting IV fluids
+* Measure Gastric residual volume once each morning before starting feeds. Anything above 100 mL has to be brought to the notice of ICU consultant/Trainee on duty immediately
+* Monitor GRBS as advised in daily notes, and inform ICU Consultant if GRBS > 180 mg/dL
+* Any change in dilutions or rate of administration has to be brought to the notice of ICU consultant/Trainee`;
+
+  dietPrescription.innerHTML = `
+    <h3>Enteral Nutrition Prescription :</h3>
+
+    <div class="prescription-lines">
+      <p><span>Measured height</span><strong>~ ${formatNumber(patient.heightCm)} cm</strong></p>
+      <p><span>Estimated IBW</span><strong>: ${formatNumber(patient.idealBodyWeight)} Kg</strong></p>
+      <p>
+        <span>Predicted body weight based calculation</span>
+        <strong>: 25-30 Kcal/kg/day = ${formatNumber(calculationWeight)} Kg x 25-30 = ${formatRange(calorieMin, calorieMax, "KCal per day")}</strong>
+      </p>
+      <p>
+        <span>Recommended protein intake</span>
+        <strong>: 1.2-1.5 gm/kg/day = ${formatNumber(proteinWeight)} Kg x 1.2-1.5 = ${formatRange(proteinMin, proteinMax, "grams of protein per day")}</strong>
+      </p>
+      <p><span>Calories from Protein</span><strong>= 4Kcal per gm of protein = ${formatRange(proteinCaloriesMin, proteinCaloriesMax, "KCal per day")}</strong></p>
+      <p>
+        <span>Total calories required (Calories from proteins to be added to total estimated)</span>
+        <strong>= ${formatRange(totalCaloriesRequiredMin, totalCaloriesRequiredMax, "KCal per day")}</strong>
+      </p>
+      <p>
+        <span>Target is to meet at least 70% by day 3</span>
+        <strong>= derived from 70% of total calories required = ${formatRange(dayThreeTargetMin, dayThreeTargetMax, "KCal per day")}</strong>
+      </p>
+      <p><span>Enteral formula selected</span><strong>: ${feedConfig.selectedProduct.name}</strong></p>
+      <p>
+        <span>Manufacturer recommended Standard dilution</span>
+        <strong>: ${feedConfig.selectedProduct.dilution}</strong>
+      </p>
+    </div>
+
+    <div class="prescription-section">
+      <h4>Instructions to Nurse:</h4>
+      <p><strong>Dilution :</strong> ${feedConfig.dilutionLabel} with manufacture recommended standard dilution given in the respective tile (${feedConfig.selectedProduct.dilution}) and chosen rate of administraton ${feedConfig.rate} mL per hour</p>
+      <p>Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours (obtained at time per feed obtained in feed configuration )</p>
+      <p>Shake feed in bag every ${formatNumber(feedConfig.timePerFeed)} hours (obtained at time per feed obtained in feed configuration )</p>
+    </div>
+
+    <div class="prescription-lines">
+      <p><span>Total calories delivered</span><strong>= ${Math.round(feedConfig.deliveredCalories)} KCal per day</strong></p>
+      <p><span>Total Protein delivered</span><strong>= ${formatNumber(feedConfig.deliveredProtein)} gm per day</strong></p>
+      <p>
+        <span>Any extra supplementation needed</span>
+        <strong>: ${extraSupplementation}</strong>
+      </p>
+      <p><span>Total volume from Enteral feed per day</span><strong>: ${feedConfig.totalVolumePerDay} mL</strong></p>
+    </div>
+
+    <div class="prescription-section">
+      <h4>Standard precautions to be followed while preparing feeds: (same for every prescription)</h4>
+      <ul>
+        <li>All personal protective equipment on</li>
+        <li>Wash hands with soap for about 40-60 seconds</li>
+        <li>Use sterile plastic apron and hand care gloves while preparing the feed</li>
+        <li>Prepare feed as per prescription</li>
+        <li>After mixing thoroughly put the preparation into feeding bag</li>
+        <li>Confirm position of Ryles tube/Freka tube with hissing sound in epigastric area before starting feeds (If any doubt - inform the consultant immediately)</li>
+        <li>Start feed at prescribed rate only</li>
+        <li>Whenever a patient is in NBM, please confirm with ICU consultant about need for starting IV fluids</li>
+        <li>Measure Gastric residual volume once each morning before starting feeds. Anything above 100 mL has to be brought to the notice of ICU consultant/Trainee on duty immediately</li>
+        <li>Monitor GRBS as advised in daily notes, and inform ICU Consultant if GRBS &gt; 180 mg/dL</li>
+        <li>Any change in dilutions or rate of administration has to be brought to the notice of ICU consultant/Trainee</li>
+      </ul>
+    </div>
+    <button id="copy-prescription" class="copy-prescription-tile" type="button">
+      Copy Prescription
+    </button>
+    <p id="copy-prescription-status" class="copy-status" aria-live="polite"></p>
+  `;
+  dietPrescription.classList.remove("hidden");
+
+  if (shouldScroll) {
+    dietPrescription.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function setCopyPrescriptionStatus(message) {
+  const status = document.getElementById("copy-prescription-status");
+
+  if (status) {
+    status.textContent = message;
+  }
+}
+
+function fallbackCopyText(text) {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.left = "-9999px";
+  textArea.style.position = "fixed";
+  document.body.appendChild(textArea);
+  textArea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textArea);
+  return copied;
+}
+
+async function copyDietPrescription() {
+  if (!pathwayState.dietPrescriptionText) {
+    renderDietPrescription(false);
+  }
+
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(pathwayState.dietPrescriptionText);
+    } else if (!fallbackCopyText(pathwayState.dietPrescriptionText)) {
+      throw new Error("Clipboard copy failed");
+    }
+
+    setCopyPrescriptionStatus("Prescription copied. You can paste it wherever required.");
+  } catch (error) {
+    setCopyPrescriptionStatus("Copy failed. Select the prescription text and copy manually.");
+  }
 }
 
 function roundToOneDecimal(value) {
@@ -776,6 +1220,7 @@ function updateEnteralTargetDisplay() {
     </div>
     <p class="summary">Suggested day-based advancement: gradually increase the intake to target 70% by day 3 if tolerated.</p>
   `;
+  updateFeedConfiguration();
 }
 
 function selectRoute(route) {
@@ -808,6 +1253,7 @@ function selectRoute(route) {
   }
 
   productLibrary.classList.remove("hidden");
+  updateFeedConfiguration();
   revealStage(stepResult);
 }
 
@@ -825,6 +1271,7 @@ function resetFlow() {
   giResults.innerHTML = "";
   resultContext.innerHTML = "";
   enteralTargetResults.innerHTML = "";
+  resetFeedConfiguration();
   patientDataResults.classList.add("hidden");
   enteralPlanner.classList.add("hidden");
   enteralTargetControls.classList.add("hidden");
@@ -864,6 +1311,7 @@ clearPatientData.addEventListener("click", () => {
   giResults.innerHTML = "";
   resultContext.innerHTML = "";
   enteralTargetResults.innerHTML = "";
+  resetFeedConfiguration();
   nutritionResults.classList.add("hidden");
   giResults.classList.add("hidden");
   completeAssessment.classList.add("hidden");
@@ -895,6 +1343,7 @@ resetNutrition.addEventListener("click", () => {
   giResults.innerHTML = "";
   resultContext.innerHTML = "";
   enteralTargetResults.innerHTML = "";
+  resetFeedConfiguration();
   nutritionResults.classList.add("hidden");
   giResults.classList.add("hidden");
   completeAssessment.classList.add("hidden");
@@ -935,7 +1384,42 @@ enteralDayForm.addEventListener("submit", (event) => {
   input.addEventListener("input", updateEnteralTargetDisplay);
 });
 
+feedProduct.addEventListener("change", () => {
+  selectedFeedProductName = feedProduct.value;
+  renderEnteralPreparations();
+  updateFeedConfiguration();
+});
+
+[feedDilution, feedHours, feedRate].forEach((input) => {
+  input.addEventListener("input", updateFeedConfiguration);
+});
+
+generatePrescription.addEventListener("click", () => {
+  renderDietPrescription();
+});
+
+dietPrescription.addEventListener("click", (event) => {
+  if (event.target.closest("#copy-prescription")) {
+    copyDietPrescription();
+  }
+});
+
+productGrid.addEventListener("click", (event) => {
+  const card = event.target.closest(".product-card");
+
+  if (!card) {
+    return;
+  }
+
+  selectedFeedProductName = card.dataset.productName;
+  feedProduct.value = selectedFeedProductName;
+  renderEnteralPreparations();
+  updateFeedConfiguration();
+});
+
+renderFeedProductOptions();
 renderEnteralPreparations();
+updateFeedConfiguration();
 
 restart.addEventListener("click", () => {
   resetFlow();
