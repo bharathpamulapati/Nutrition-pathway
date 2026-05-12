@@ -35,6 +35,11 @@ const prepLibraryToggle = document.getElementById("prep-library-toggle");
 const prepLibraryContent = document.getElementById("prep-library-content");
 const productFilterSummary = document.getElementById("product-filter-summary");
 const productGrid = document.getElementById("product-grid");
+const compareSelectionCount = document.getElementById("compare-selection-count");
+const compareProducts = document.getElementById("compare-products");
+const compareModal = document.getElementById("compare-modal");
+const compareTableWrap = document.getElementById("compare-table-wrap");
+const closeCompare = document.getElementById("close-compare");
 const feedConfigurator = document.querySelector(".feed-configurator");
 const feedProductName = document.getElementById("feed-product-name");
 const feedDilution = document.getElementById("feed-dilution");
@@ -118,6 +123,7 @@ const enteralPreparations = [
 ];
 
 let selectedFeedProductName = null;
+let selectedCompareProductNames = [];
 const productFilterDefinitions = {
   "low-sodium": "Low Sodium",
   "high-sodium": "High Sodium",
@@ -156,7 +162,7 @@ function hideStage(stageEl) {
 }
 
 const sharedParameterGroups = [
-  ["nutric-age", "glim-age"],
+  ["nutric-age", "nrs-age", "glim-age"],
   ["bmi", "must-bmi", "glim-bmi"],
   ["weight-loss", "must-weight-loss", "glim-weight-loss"],
 ];
@@ -299,6 +305,73 @@ function updateProductFilterSummary(products) {
   }.`;
 }
 
+function updateCompareControls() {
+  const selectedCount = selectedCompareProductNames.length;
+  compareSelectionCount.textContent =
+    selectedCount === 0
+      ? "Select any 3 preparations to compare."
+      : `${selectedCount} of 3 preparations selected for comparison.`;
+  compareProducts.disabled = selectedCount !== 3;
+}
+
+function getCompareRows() {
+  return [
+    { label: "Type", getValue: (product) => product.type },
+    { label: "Manufacturer", getValue: (product) => product.manufacturer },
+    ...[
+      "Calories",
+      "Cal Density",
+      "Protein",
+      "Fat",
+      "CHO",
+      "Sodium",
+      "Potassium",
+      "Phosphorus",
+      "Total Volume",
+    ].map((label) => ({
+      label: getDisplayConstituentLabel(label),
+      getValue: (product) => product.constituents.find((item) => item.label === label)?.value || "-",
+    })),
+    { label: "Standard dilution", getValue: (product) => product.dilution },
+  ];
+}
+
+function renderComparisonModal() {
+  const products = selectedCompareProductNames
+    .map((name) => enteralPreparations.find((product) => product.name === name))
+    .filter(Boolean);
+
+  if (products.length !== 3) {
+    return;
+  }
+
+  const rows = getCompareRows()
+    .map((row) => {
+      const values = products.map(row.getValue);
+      const hasDifference = new Set(values).size > 1;
+      return `
+        <tr class="${hasDifference ? "comparison-difference" : ""}">
+          <th scope="row">${row.label}</th>
+          ${values.map((value) => `<td>${value}</td>`).join("")}
+        </tr>
+      `;
+    })
+    .join("");
+
+  compareTableWrap.innerHTML = `
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th scope="col">Parameter</th>
+          ${products.map((product) => `<th scope="col">${product.name}</th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  compareModal.classList.remove("hidden");
+}
+
 function formatNumber(value, decimals = 1) {
   const numericValue = Number(value);
 
@@ -344,7 +417,12 @@ function renderConstituentTile(item) {
 function renderEnteralPreparations() {
   const mainLabels = ["Calories", "Cal Density", "Protein", "Total Volume"];
   const productsToRender = getFilteredPreparations();
+  const visibleProductNames = productsToRender.map((product) => product.name);
+  selectedCompareProductNames = selectedCompareProductNames.filter((name) =>
+    visibleProductNames.includes(name)
+  );
   updateProductFilterSummary(productsToRender);
+  updateCompareControls();
 
   if (productsToRender.length === 0) {
     productGrid.innerHTML = `
@@ -382,6 +460,15 @@ function renderEnteralPreparations() {
                 .join("")}
             </div>
           </div>
+          <label class="compare-select">
+            <input
+              type="checkbox"
+              class="compare-product-checkbox"
+              value="${product.name}"
+              ${selectedCompareProductNames.includes(product.name) ? "checked" : ""}
+            />
+            Compare this preparation
+          </label>
           <div class="constituent-grid">
             ${mainConstituents.map(renderConstituentTile).join("")}
           </div>
@@ -546,6 +633,8 @@ function resetFeedConfiguration() {
 
 function resetPreparationLibrary() {
   prepLibraryContent.classList.add("hidden");
+  compareModal.classList.add("hidden");
+  selectedCompareProductNames = [];
   document.querySelectorAll('input[name="product-filter"]').forEach((input) => {
     input.checked = false;
   });
@@ -894,7 +983,7 @@ function scoreNutric() {
 }
 
 function scoreNrs2002() {
-  const age = getNumber("nutric-age");
+  const age = getNumber("nrs-age");
   const bmi = getNumber("bmi");
   const weightLoss = getNumber("weight-loss");
   const intake = getNumber("intake");
@@ -1054,7 +1143,7 @@ const nutritionScoringTools = [
   },
   {
     label: "NRS-2002",
-    requiredFields: ["nutric-age", "bmi", "weight-loss", "intake", "disease-severity"],
+    requiredFields: ["nrs-age", "bmi", "weight-loss", "intake", "disease-severity"],
     score: scoreNrs2002,
   },
   {
@@ -1330,7 +1419,6 @@ function updateEnteralTargetDisplay() {
 function selectRoute(route) {
   if (route === "enteral") {
     prepareEnteralPlanner();
-    productLibrary.classList.remove("hidden");
     resetPreparationLibrary();
     revealStage(stepResult);
   } else {
@@ -1461,6 +1549,8 @@ enteralDayForm.addEventListener("submit", (event) => {
   caloriePercent.value = getSuggestedCaloriePercent(getNumber("icu-day"));
   enteralTargetControls.classList.remove("hidden");
   updateEnteralTargetDisplay();
+  productLibrary.classList.remove("hidden");
+  productLibrary.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 [caloriePercent, proteinTarget, calorieTarget, enteralIbw].forEach((input) => {
@@ -1473,6 +1563,18 @@ enteralDayForm.addEventListener("submit", (event) => {
 
 document.querySelectorAll('input[name="product-filter"]').forEach((input) => {
   input.addEventListener("change", renderEnteralPreparations);
+});
+
+compareProducts.addEventListener("click", renderComparisonModal);
+
+closeCompare.addEventListener("click", () => {
+  compareModal.classList.add("hidden");
+});
+
+compareModal.addEventListener("click", (event) => {
+  if (event.target === compareModal) {
+    compareModal.classList.add("hidden");
+  }
 });
 
 prepLibraryToggle.addEventListener("click", () => {
@@ -1492,6 +1594,29 @@ dietPrescription.addEventListener("click", (event) => {
 });
 
 productGrid.addEventListener("click", (event) => {
+  const compareCheckbox = event.target.closest(".compare-product-checkbox");
+
+  if (compareCheckbox) {
+    const productName = compareCheckbox.value;
+
+    if (compareCheckbox.checked) {
+      if (selectedCompareProductNames.length >= 3) {
+        compareCheckbox.checked = false;
+      } else {
+        selectedCompareProductNames.push(productName);
+      }
+    } else {
+      selectedCompareProductNames = selectedCompareProductNames.filter((name) => name !== productName);
+    }
+
+    updateCompareControls();
+    return;
+  }
+
+  if (event.target.closest(".compare-select")) {
+    return;
+  }
+
   const showMoreButton = event.target.closest(".show-more-product");
 
   if (showMoreButton) {
