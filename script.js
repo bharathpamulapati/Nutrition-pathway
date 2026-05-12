@@ -34,6 +34,28 @@ const proteinTarget = document.getElementById("protein-target");
 const proteinTargetValue = document.getElementById("protein-target-value");
 const calorieTarget = document.getElementById("calorie-target");
 const calorieTargetValue = document.getElementById("calorie-target-value");
+const productGrid = document.getElementById("product-grid");
+
+const enteralPreparations = [
+  {
+    name: "ALBUWISE",
+    type: "Standard",
+    manufacturer: "Nucgnex",
+    tags: ["Low Sodium", "High Protein", "Low Cal Density"],
+    constituents: [
+      { label: "Calories", value: "129 kcal" },
+      { label: "Cal Density", value: "0.65 kcal/ml", highlight: true },
+      { label: "Protein", value: "18.3 g" },
+      { label: "Fat", value: "3.0 g" },
+      { label: "CHO", value: "7.2 g" },
+      { label: "Sodium", value: "137 mg" },
+      { label: "Potassium", value: "116 mg" },
+      { label: "Phosphorus", value: "29 mg" },
+      { label: "Total Volume", value: "200 ml" },
+    ],
+    dilution: "Standard Dilution: 3 levelled scoops (30g) in 180ml water",
+  },
+];
 
 const pathwayState = {
   patient: null,
@@ -57,6 +79,39 @@ function revealStage(stageEl) {
 
 function hideStage(stageEl) {
   stageEl.classList.add("hidden");
+}
+
+function renderEnteralPreparations() {
+  productGrid.innerHTML = enteralPreparations
+    .map(
+      (product) => `
+        <article class="product-card">
+          <div class="product-card-header">
+            <div>
+              <h3>${product.name}</h3>
+              <p>${product.type} &bull; ${product.manufacturer}</p>
+            </div>
+            <div class="product-tags">
+              ${product.tags.map((tag) => `<span>${tag}</span>`).join("")}
+            </div>
+          </div>
+          <div class="constituent-grid">
+            ${product.constituents
+              .map(
+                (item) => `
+                  <div class="constituent-tile ${item.highlight ? "featured" : ""}">
+                    <span>${item.label}</span>
+                    <strong>${item.value}</strong>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+          <p class="dilution-note">${product.dilution}</p>
+        </article>
+      `
+    )
+    .join("");
 }
 
 function roundToOneDecimal(value) {
@@ -558,7 +613,7 @@ function updateEnteralTargetDisplay() {
         <small>${calorieDeliveryPercent}% of full calorie requirement</small>
       </article>
     </div>
-    <p class="summary">Suggested day-based advancement: day 1 about 25%, day 2 about 50%, day 3 about 75%, and day 4 onward up to 100% if tolerated.</p>
+    <p class="summary">Suggested day-based advancement: gradually increase the intake to target 70% by day 3 if tolerated.</p>
   `;
 }
 
@@ -707,6 +762,8 @@ enteralDayForm.addEventListener("submit", (event) => {
 [caloriePercent, proteinTarget, calorieTarget, enteralIbw].forEach((input) => {
   input.addEventListener("input", updateEnteralTargetDisplay);
 });
+
+renderEnteralPreparations();
 
 restart.addEventListener("click", () => {
   resetFlow();
