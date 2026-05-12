@@ -716,7 +716,7 @@ Rate of administration: ${feedConfig.rate} mL per hour
 
 Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours
 
-Shake feed in bag every ${formatNumber(feedConfig.timePerFeed)} hours
+Shake feed in bag hourly
 
 Total calories delivered: ${Math.round(feedConfig.deliveredCalories)} KCal per day
 Total protein delivered: ${formatNumber(feedConfig.deliveredProtein)} gm per day
@@ -725,7 +725,7 @@ Total volume from enteral feed per day: ${feedConfig.totalVolumePerDay} mL
 
 Standard precautions to be followed while preparing feeds:
 
-* All personal protective equipment like cap,mask on.
+* All personal protective equipment like cap & mask have to be donned.
 * Wash hands with soap for about 40-60 seconds.
 * Use sterile plastic apron and hand care gloves while preparing the feed.
 * Prepare feed as per prescription.
@@ -755,7 +755,7 @@ Standard precautions to be followed while preparing feeds:
           ["Selected dilution", feedConfig.dilutionLabel],
           ["Rate of administration", `${feedConfig.rate} mL per hour`],
           ["Prepare fresh feed every", `${formatNumber(feedConfig.timePerFeed)} hours`],
-          ["Shake feed in bag every", `${formatNumber(feedConfig.timePerFeed)} hours`],
+          ["Shake feed in bag", "Hourly"],
           ["Total calories delivered", `${Math.round(feedConfig.deliveredCalories)} KCal per day`],
           ["Total protein delivered", `${formatNumber(feedConfig.deliveredProtein)} gm per day`],
           ["Any extra supplementation needed", extraSupplementation],
@@ -776,11 +776,11 @@ Standard precautions to be followed while preparing feeds:
         <p><strong>Dilution:</strong> ${feedConfig.dilutionLabel}</p>
         <p><strong>Rate of administration:</strong> ${feedConfig.rate} mL per hour</p>
         <p><strong>Prepare fresh feed every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
-        <p><strong>Shake feed in bag every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
+        <p><strong>Shake feed in bag:</strong> Hourly</p>
       </div>
       <h4>Standard precautions to be followed while preparing feeds:</h4>
       <ul>
-        <li>All personal protective equipment like cap,mask on.</li>
+        <li>All personal protective equipment like cap &amp; mask have to be donned.</li>
         <li>Wash hands with soap for about 40-60 seconds.</li>
         <li>Use sterile plastic apron and hand care gloves while preparing the feed.</li>
         <li>Prepare feed as per prescription.</li>
