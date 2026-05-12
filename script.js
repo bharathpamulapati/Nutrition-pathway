@@ -126,6 +126,48 @@ function scoreNrs2002() {
   };
 }
 
+function scoreMust() {
+  const bmi = getNumber("must-bmi");
+  const weightLoss = getNumber("must-weight-loss");
+  const acuteDisease = getNumber("must-acute-disease");
+
+  let bmiScore = 0;
+  if (bmi < 18.5) {
+    bmiScore = 2;
+  } else if (bmi <= 20) {
+    bmiScore = 1;
+  }
+
+  let weightLossScore = 0;
+  if (weightLoss > 10) {
+    weightLossScore = 2;
+  } else if (weightLoss >= 5) {
+    weightLossScore = 1;
+  }
+
+  const score = bmiScore + weightLossScore + acuteDisease;
+  let interpretation = "Low malnutrition risk; continue routine screening.";
+  let risk = "low";
+
+  if (score >= 2) {
+    interpretation =
+      "High malnutrition risk by MUST; treat nutrition risk and monitor closely.";
+    risk = "high";
+  } else if (score === 1) {
+    interpretation =
+      "Medium malnutrition risk by MUST; observe, document intake, and reassess.";
+    risk = "moderate";
+  }
+
+  return {
+    name: "MUST",
+    score,
+    max: 6,
+    interpretation,
+    risk,
+  };
+}
+
 function scoreSga() {
   const fields = [
     "sga-weight",
@@ -160,7 +202,7 @@ function scoreSga() {
 }
 
 function calculateNutrition() {
-  const scores = [scoreNutric(), scoreNrs2002(), scoreSga()];
+  const scores = [scoreNutric(), scoreNrs2002(), scoreMust(), scoreSga()];
   const highRiskCount = scores.filter((score) => score.risk === "high").length;
   const summary =
     highRiskCount > 0

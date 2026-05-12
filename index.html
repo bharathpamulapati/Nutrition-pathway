@@ -98,6 +98,26 @@
               </fieldset>
 
               <fieldset class="tool-card">
+                <legend>MUST</legend>
+                <label>
+                  BMI
+                  <input id="must-bmi" type="number" min="8" max="60" step="0.1" required />
+                </label>
+                <label>
+                  Unplanned weight loss in last 3-6 months (%)
+                  <input id="must-weight-loss" type="number" min="0" max="80" step="0.1" required />
+                </label>
+                <label>
+                  Acute disease effect
+                  <select id="must-acute-disease" required>
+                    <option value="">Select</option>
+                    <option value="0">No acute disease effect</option>
+                    <option value="2">No nutritional intake for &gt;5 days or likely &gt;5 days</option>
+                  </select>
+                </label>
+              </fieldset>
+
+              <fieldset class="tool-card">
                 <legend>Subjective Global Assessment</legend>
                 <label>
                   Weight change
