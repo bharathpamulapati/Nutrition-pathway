@@ -18,11 +18,7 @@ const giForm = document.getElementById("gi-form");
 const giResults = document.getElementById("gi-results");
 const enteralChoice = document.getElementById("enteral-choice");
 const parenteralChoice = document.getElementById("parenteral-choice");
-const restart = document.getElementById("restart");
 
-const resultTitle = document.getElementById("result-title");
-const resultText = document.getElementById("result-text");
-const resultContext = document.getElementById("result-context");
 const enteralPlanner = document.getElementById("enteral-planner");
 const enteralDayForm = document.getElementById("enteral-day-form");
 const enteralTargetControls = document.getElementById("enteral-target-controls");
@@ -36,7 +32,8 @@ const calorieTarget = document.getElementById("calorie-target");
 const calorieTargetValue = document.getElementById("calorie-target-value");
 const productLibrary = document.getElementById("product-library");
 const productGrid = document.getElementById("product-grid");
-const feedProduct = document.getElementById("feed-product");
+const feedConfigurator = document.querySelector(".feed-configurator");
+const feedProductName = document.getElementById("feed-product-name");
 const feedDilution = document.getElementById("feed-dilution");
 const feedHours = document.getElementById("feed-hours");
 const feedRate = document.getElementById("feed-rate");
@@ -274,21 +271,8 @@ function renderEnteralPreparations() {
     .join("");
 }
 
-function renderFeedProductOptions() {
-  const sortedProducts = getSortedPreparations();
-
-  if (!selectedFeedProductName && sortedProducts.length) {
-    selectedFeedProductName = sortedProducts[0].name;
-  }
-
-  feedProduct.innerHTML = sortedProducts
-    .map(
-      (product) =>
-        `<option value="${product.name}" ${
-          product.name === selectedFeedProductName ? "selected" : ""
-        }>${product.name}</option>`
-    )
-    .join("");
+function updateSelectedFeedProductName() {
+  feedProductName.textContent = selectedFeedProductName || "Select a product tile above";
 }
 
 function createSummaryTile(label, value, detail = "") {
@@ -412,8 +396,7 @@ function updateFeedConfiguration() {
 }
 
 function resetFeedConfiguration() {
-  const firstProduct = getSortedPreparations()[0];
-  selectedFeedProductName = firstProduct ? firstProduct.name : null;
+  selectedFeedProductName = null;
   feedDilution.value = "1";
   feedHours.value = "18";
   feedRate.value = "20";
@@ -421,7 +404,7 @@ function resetFeedConfiguration() {
   dietPrescription.classList.add("hidden");
   pathwayState.dietPrescription = null;
   pathwayState.dietPrescriptionText = null;
-  renderFeedProductOptions();
+  updateSelectedFeedProductName();
   renderEnteralPreparations();
   updateFeedConfiguration();
 }
@@ -463,8 +446,8 @@ function renderDietPrescription(shouldScroll = true) {
           extraProteinMin,
           extraProteinMax,
           "gm protein per day"
-        )} based on the 1.2-1.5 gm/kg/day target range`
-      : "No extra protein supplementation needed based on the 1.2-1.5 gm/kg/day target range";
+        )}`
+      : "No extra protein supplementation needed";
 
   pathwayState.dietPrescription = {
     patient,
@@ -479,49 +462,30 @@ function renderDietPrescription(shouldScroll = true) {
     extraProteinMax,
   };
 
-  pathwayState.dietPrescriptionText = `Enteral Nutrition Prescription :
+  pathwayState.dietPrescriptionText = `Enteral Nutrition Prescription:
 
+Measured height: ${formatNumber(patient.heightCm)} cm
+Estimated IBW: ${formatNumber(patient.idealBodyWeight)} Kg
+Predicted body weight: ${formatNumber(patient.predictedBodyWeight)} Kg
+Calorie requirement: ${formatRange(calorieMin, calorieMax, "KCal per day")}
+Recommended protein intake: ${formatRange(proteinMin, proteinMax, "grams per day")}
+Calories from protein: ${formatRange(proteinCaloriesMin, proteinCaloriesMax, "KCal per day")}
+Total calories required: ${formatRange(totalCaloriesRequiredMin, totalCaloriesRequiredMax, "KCal per day")}
+70% target by day 3: ${formatRange(dayThreeTargetMin, dayThreeTargetMax, "KCal per day")}
 
-Measured height                        ~  ${formatNumber(patient.heightCm)} cm
-
-Estimated IBW                          :  ${formatNumber(patient.idealBodyWeight)} Kg
-
-Predicted body weight based calculation : 25-30 Kcal/kg/day = ${formatNumber(
-    calculationWeight
-  )} Kg x 25-30 = ${formatRange(calorieMin, calorieMax, "KCal per day")}
-
-Recommended protein intake : 1.2-1.5 gm/kg/day = ${formatNumber(
-    proteinWeight
-  )} Kg x 1.2-1.5 = ${formatRange(proteinMin, proteinMax, "grams of protein per day")}
-Calories from Protein              =  4Kcal per gm of protein = ${formatRange(
-    proteinCaloriesMin,
-    proteinCaloriesMax,
-    "KCal per day"
-  )}
-Total calories required (Calories from proteins to be added to total estimated) = ${formatRange(
-    totalCaloriesRequiredMin,
-    totalCaloriesRequiredMax,
-    "KCal per day"
-  )}
-
-Target is to meet at least 70% by day 3 = derived from 70% of total calories required = ${formatRange(
-    dayThreeTargetMin,
-    dayThreeTargetMax,
-    "KCal per day"
-  )}
-
-Enteral formula selected               : ${feedConfig.selectedProduct.name}
-Manufacturer recommended Standard dilution : ${feedConfig.selectedProduct.dilution}
+Enteral formula selected: ${feedConfig.selectedProduct.name}
+Manufacturer recommended standard dilution: ${feedConfig.selectedProduct.dilution}
 
 Instructions to Nurse:
-Dilution : ${feedConfig.dilutionLabel} with manufacturer recommended standard dilution (${feedConfig.selectedProduct.dilution}) and chosen rate of administration ${feedConfig.rate} mL per hour
-Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours (obtained at time per feed obtained in feed configuration )
-Shake feed in bag every ${formatNumber(feedConfig.timePerFeed)} hours (obtained at time per feed obtained in feed configuration )
+Dilution: ${feedConfig.dilutionLabel}
+Rate of administration: ${feedConfig.rate} mL per hour
+Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours
+Shake feed in bag every ${formatNumber(feedConfig.timePerFeed)} hours
 
-Total calories delivered               = ${Math.round(feedConfig.deliveredCalories)} KCal per day
-Total Protein delivered                = ${formatNumber(feedConfig.deliveredProtein)} gm per day
-Any extra supplementation needed       : ${extraSupplementation}
-Total volume from Enteral feed per day : ${feedConfig.totalVolumePerDay} mL
+Total calories delivered: ${Math.round(feedConfig.deliveredCalories)} KCal per day
+Total protein delivered: ${formatNumber(feedConfig.deliveredProtein)} gm per day
+Any extra supplementation needed: ${extraSupplementation}
+Total volume from enteral feed per day: ${feedConfig.totalVolumePerDay} mL
 
 Standard precautions to be followed while preparing feeds: (same for every prescription)
 
@@ -539,52 +503,43 @@ Standard precautions to be followed while preparing feeds: (same for every presc
 
   dietPrescription.innerHTML = `
     <h3>Enteral Nutrition Prescription :</h3>
-
-    <div class="prescription-lines">
-      <p><span>Measured height</span><strong>~ ${formatNumber(patient.heightCm)} cm</strong></p>
-      <p><span>Estimated IBW</span><strong>: ${formatNumber(patient.idealBodyWeight)} Kg</strong></p>
-      <p>
-        <span>Predicted body weight based calculation</span>
-        <strong>: 25-30 Kcal/kg/day = ${formatNumber(calculationWeight)} Kg x 25-30 = ${formatRange(calorieMin, calorieMax, "KCal per day")}</strong>
-      </p>
-      <p>
-        <span>Recommended protein intake</span>
-        <strong>: 1.2-1.5 gm/kg/day = ${formatNumber(proteinWeight)} Kg x 1.2-1.5 = ${formatRange(proteinMin, proteinMax, "grams of protein per day")}</strong>
-      </p>
-      <p><span>Calories from Protein</span><strong>= 4Kcal per gm of protein = ${formatRange(proteinCaloriesMin, proteinCaloriesMax, "KCal per day")}</strong></p>
-      <p>
-        <span>Total calories required (Calories from proteins to be added to total estimated)</span>
-        <strong>= ${formatRange(totalCaloriesRequiredMin, totalCaloriesRequiredMax, "KCal per day")}</strong>
-      </p>
-      <p>
-        <span>Target is to meet at least 70% by day 3</span>
-        <strong>= derived from 70% of total calories required = ${formatRange(dayThreeTargetMin, dayThreeTargetMax, "KCal per day")}</strong>
-      </p>
-      <p><span>Enteral formula selected</span><strong>: ${feedConfig.selectedProduct.name}</strong></p>
-      <p>
-        <span>Manufacturer recommended Standard dilution</span>
-        <strong>: ${feedConfig.selectedProduct.dilution}</strong>
-      </p>
-    </div>
-
-    <div class="prescription-section">
+    <div class="prescription-single-tile">
+      <div class="prescription-lines">
+        ${[
+          ["Measured height", `${formatNumber(patient.heightCm)} cm`],
+          ["Estimated IBW", `${formatNumber(patient.idealBodyWeight)} Kg`],
+          ["Predicted body weight", `${formatNumber(patient.predictedBodyWeight)} Kg`],
+          ["Calorie requirement", formatRange(calorieMin, calorieMax, "KCal per day")],
+          ["Recommended protein intake", formatRange(proteinMin, proteinMax, "grams per day")],
+          ["Calories from protein", formatRange(proteinCaloriesMin, proteinCaloriesMax, "KCal per day")],
+          ["Total calories required", formatRange(totalCaloriesRequiredMin, totalCaloriesRequiredMax, "KCal per day")],
+          ["70% target by day 3", formatRange(dayThreeTargetMin, dayThreeTargetMax, "KCal per day")],
+          ["Enteral formula selected", feedConfig.selectedProduct.name],
+          ["Manufacturer recommended standard dilution", feedConfig.selectedProduct.dilution],
+          ["Selected dilution", feedConfig.dilutionLabel],
+          ["Rate of administration", `${feedConfig.rate} mL per hour`],
+          ["Prepare fresh feed every", `${formatNumber(feedConfig.timePerFeed)} hours`],
+          ["Shake feed in bag every", `${formatNumber(feedConfig.timePerFeed)} hours`],
+          ["Total calories delivered", `${Math.round(feedConfig.deliveredCalories)} KCal per day`],
+          ["Total protein delivered", `${formatNumber(feedConfig.deliveredProtein)} gm per day`],
+          ["Any extra supplementation needed", extraSupplementation],
+          ["Total volume from enteral feed per day", `${feedConfig.totalVolumePerDay} mL`],
+        ]
+          .map(
+            ([label, value]) => `
+              <p>
+                <span>${label}</span>
+                <strong>${value}</strong>
+              </p>
+            `
+          )
+          .join("")}
+      </div>
       <h4>Instructions to Nurse:</h4>
-      <p><strong>Dilution :</strong> ${feedConfig.dilutionLabel} with manufacture recommended standard dilution given in the respective tile (${feedConfig.selectedProduct.dilution}) and chosen rate of administraton ${feedConfig.rate} mL per hour</p>
-      <p>Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours (obtained at time per feed obtained in feed configuration )</p>
-      <p>Shake feed in bag every ${formatNumber(feedConfig.timePerFeed)} hours (obtained at time per feed obtained in feed configuration )</p>
-    </div>
-
-    <div class="prescription-lines">
-      <p><span>Total calories delivered</span><strong>= ${Math.round(feedConfig.deliveredCalories)} KCal per day</strong></p>
-      <p><span>Total Protein delivered</span><strong>= ${formatNumber(feedConfig.deliveredProtein)} gm per day</strong></p>
-      <p>
-        <span>Any extra supplementation needed</span>
-        <strong>: ${extraSupplementation}</strong>
-      </p>
-      <p><span>Total volume from Enteral feed per day</span><strong>: ${feedConfig.totalVolumePerDay} mL</strong></p>
-    </div>
-
-    <div class="prescription-section">
+      <p><strong>Dilution:</strong> ${feedConfig.dilutionLabel}</p>
+      <p><strong>Rate of administration:</strong> ${feedConfig.rate} mL per hour</p>
+      <p><strong>Prepare fresh feed every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
+      <p><strong>Shake feed in bag every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
       <h4>Standard precautions to be followed while preparing feeds: (same for every prescription)</h4>
       <ul>
         <li>All personal protective equipment on</li>
@@ -1224,37 +1179,16 @@ function updateEnteralTargetDisplay() {
 }
 
 function selectRoute(route) {
-  const gi = pathwayState.gi;
-  const nutrition = pathwayState.nutrition;
-  const isRecommended = gi && gi.recommendation === route;
-
-  resultTitle.textContent =
-    route === "enteral" ? "Enteral Pathway Selected" : "Parenteral Pathway Selected";
-
-  resultText.textContent =
-    route === "enteral"
-      ? "Proceed with enteral nutrition if no contraindication is present. Start per protocol, advance as tolerated, and monitor gastric residuals, vomiting, distension, diarrhea, aspiration risk, and hemodynamics."
-      : "Proceed with parenteral nutrition strategy when enteral nutrition is unsafe, contraindicated, or insufficient. Reassess GI function frequently for possible transition to enteral feeding.";
-
-  resultContext.innerHTML = `
-    ${gi ? `<p><strong>GI classification:</strong> ${gi.title}</p>` : ""}
-    ${nutrition ? `<p><strong>Nutrition summary:</strong> ${nutrition.summary}</p>` : ""}
-    <p><strong>Route alignment:</strong> ${
-      isRecommended
-        ? "This matches the pathway recommendation from the GI assessment."
-        : "This differs from the pathway recommendation; document the clinical reason for overriding."
-    }</p>
-  `;
-
   if (route === "enteral") {
     prepareEnteralPlanner();
+    revealStage(stepResult);
   } else {
     resetEnteralPlanner();
+    hideStage(stepResult);
   }
 
   productLibrary.classList.remove("hidden");
   updateFeedConfiguration();
-  revealStage(stepResult);
 }
 
 function resetFlow() {
@@ -1269,7 +1203,6 @@ function resetFlow() {
   patientDataResults.innerHTML = "";
   nutritionResults.innerHTML = "";
   giResults.innerHTML = "";
-  resultContext.innerHTML = "";
   enteralTargetResults.innerHTML = "";
   resetFeedConfiguration();
   patientDataResults.classList.add("hidden");
@@ -1309,7 +1242,6 @@ clearPatientData.addEventListener("click", () => {
   enteralDayForm.reset();
   nutritionResults.innerHTML = "";
   giResults.innerHTML = "";
-  resultContext.innerHTML = "";
   enteralTargetResults.innerHTML = "";
   resetFeedConfiguration();
   nutritionResults.classList.add("hidden");
@@ -1341,7 +1273,6 @@ resetNutrition.addEventListener("click", () => {
   enteralDayForm.reset();
   nutritionResults.innerHTML = "";
   giResults.innerHTML = "";
-  resultContext.innerHTML = "";
   enteralTargetResults.innerHTML = "";
   resetFeedConfiguration();
   nutritionResults.classList.add("hidden");
@@ -1384,12 +1315,6 @@ enteralDayForm.addEventListener("submit", (event) => {
   input.addEventListener("input", updateEnteralTargetDisplay);
 });
 
-feedProduct.addEventListener("change", () => {
-  selectedFeedProductName = feedProduct.value;
-  renderEnteralPreparations();
-  updateFeedConfiguration();
-});
-
 [feedDilution, feedHours, feedRate].forEach((input) => {
   input.addEventListener("input", updateFeedConfiguration);
 });
@@ -1412,16 +1337,12 @@ productGrid.addEventListener("click", (event) => {
   }
 
   selectedFeedProductName = card.dataset.productName;
-  feedProduct.value = selectedFeedProductName;
+  updateSelectedFeedProductName();
   renderEnteralPreparations();
   updateFeedConfiguration();
+  feedConfigurator.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-renderFeedProductOptions();
+updateSelectedFeedProductName();
 renderEnteralPreparations();
 updateFeedConfiguration();
-
-restart.addEventListener("click", () => {
-  resetFlow();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-});

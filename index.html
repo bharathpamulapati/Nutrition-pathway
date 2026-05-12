@@ -19,7 +19,6 @@
 
       <section class="mind-map" aria-label="ICU feeding decision mind map">
         <button id="step-start" class="node node-primary" type="button">
-          <span class="node-icon" aria-hidden="true">ICU</span>
           <span>ICU Feeding Decision</span>
           <small>Click to begin assessment</small>
         </button>
@@ -379,14 +378,6 @@
         <div id="step-branches" class="stage hidden">
           <div class="connector connector-down"></div>
           <section class="branch-map" aria-label="Feeding route branches">
-            <div class="decision-diamond">
-              <span aria-hidden="true">GI</span>
-              <strong>GI Function?</strong>
-            </div>
-            <div class="branch-lines" aria-hidden="true">
-              <span class="line-enteral"></span>
-              <span class="line-parenteral"></span>
-            </div>
             <div class="branch-buttons">
               <button id="enteral-choice" class="route route-enteral" type="button">
                 <span>Enteral</span>
@@ -403,9 +394,6 @@
         <div id="step-result" class="stage hidden">
           <div class="connector connector-down"></div>
           <section class="node node-result">
-            <h2 id="result-title">Pathway Selected</h2>
-            <p id="result-text"></p>
-            <div id="result-context" class="route-context"></div>
             <section id="enteral-planner" class="enteral-planner hidden" aria-labelledby="enteral-planner-title">
               <h3 id="enteral-planner-title">Enteral Nutrition Target Planner</h3>
               <p>
@@ -457,7 +445,6 @@
                 <div id="enteral-target-results" class="target-summary" aria-live="polite"></div>
               </div>
             </section>
-            <button id="restart" class="action-btn secondary" type="button">Restart Flow</button>
           </section>
         </div>
       </section>
@@ -486,10 +473,10 @@
 
           <div class="feed-config-card">
             <div class="feed-controls">
-              <label>
-                Selected product
-                <select id="feed-product"></select>
-              </label>
+              <div class="selected-feed-product">
+                <span>Selected product</span>
+                <strong id="feed-product-name">Select a product tile above</strong>
+              </div>
               <label>
                 Dilution type
                 <select id="feed-dilution">
