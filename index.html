@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ICU Feeding Decision Pathway</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero" aria-labelledby="page-title">
+        <p class="eyebrow">Interactive clinical pathway</p>
+        <h1 id="page-title">ICU Feeding Decision Pathway</h1>
+        <p>
+          Start with nutritional risk scoring, classify acute GI dysfunction,
+          then choose the enteral or parenteral branch.
+        </p>
+      </section>
+
+      <section class="mind-map" aria-label="ICU feeding decision mind map">
+        <button id="step-start" class="node node-primary" type="button">
+          <span class="node-icon" aria-hidden="true">ICU</span>
+          <span>ICU Feeding Decision</span>
+          <small>Click to begin assessment</small>
+        </button>
+
+        <div id="step-nutrition" class="stage hidden">
+          <div class="connector connector-down"></div>
+          <section class="node node-card">
+            <div class="stage-heading">
+              <span class="badge">Step 1</span>
+              <div>
+                <h2>Nutritional Status Assessment</h2>
+                <p>
+                  Enter the patient parameters below to calculate ICU nutrition
+                  risk using commonly used screening tools.
+                </p>
+              </div>
+            </div>
+
+            <form id="nutrition-form" class="assessment-grid">
+              <fieldset class="tool-card">
+                <legend>NUTRIC / mNUTRIC</legend>
+                <label>
+                  Age
+                  <input id="nutric-age" type="number" min="0" max="120" required />
+                </label>
+                <label>
+                  APACHE II score
+                  <input id="apache" type="number" min="0" max="71" required />
+                </label>
+                <label>
+                  SOFA score
+                  <input id="sofa" type="number" min="0" max="24" required />
+                </label>
+                <label>
+                  Number of comorbidities
+                  <input id="comorbidities" type="number" min="0" max="20" required />
+                </label>
+                <label>
+                  Days from hospital admission to ICU
+                  <input id="hospital-days" type="number" min="0" max="365" step="0.5" required />
+                </label>
+                <label>
+                  IL-6 elevated or unavailable?
+                  <select id="il6">
+                    <option value="unknown">Unavailable / calculate mNUTRIC</option>
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+              </fieldset>
+
+              <fieldset class="tool-card">
+                <legend>NRS-2002</legend>
+                <label>
+                  BMI
+                  <input id="bmi" type="number" min="8" max="60" step="0.1" required />
+                </label>
+                <label>
+                  Recent weight loss (%)
+                  <input id="weight-loss" type="number" min="0" max="80" step="0.1" required />
+                </label>
+                <label>
+                  Intake in last week (% of normal)
+                  <input id="intake" type="number" min="0" max="100" step="1" required />
+                </label>
+                <label>
+                  Disease severity
+                  <select id="disease-severity" required>
+                    <option value="">Select severity</option>
+                    <option value="0">No added stress</option>
+                    <option value="1">Mild stress</option>
+                    <option value="2">Moderate stress</option>
+                    <option value="3">Severe stress / ICU</option>
+                  </select>
+                </label>
+              </fieldset>
+
+              <fieldset class="tool-card">
+                <legend>Subjective Global Assessment</legend>
+                <label>
+                  Weight change
+                  <select id="sga-weight" required>
+                    <option value="">Select</option>
+                    <option value="0">No or minor weight loss</option>
+                    <option value="1">5-10% weight loss</option>
+                    <option value="2">&gt;10% weight loss</option>
+                  </select>
+                </label>
+                <label>
+                  Dietary intake
+                  <select id="sga-intake" required>
+                    <option value="">Select</option>
+                    <option value="0">Normal intake</option>
+                    <option value="1">Reduced intake</option>
+                    <option value="2">Minimal intake / starvation</option>
+                  </select>
+                </label>
+                <label>
+                  GI symptoms
+                  <select id="sga-symptoms" required>
+                    <option value="">Select</option>
+                    <option value="0">None</option>
+                    <option value="1">Intermittent nausea, vomiting, diarrhea, or anorexia</option>
+                    <option value="2">Persistent symptoms</option>
+                  </select>
+                </label>
+                <label>
+                  Functional capacity
+                  <select id="sga-function" required>
+                    <option value="">Select</option>
+                    <option value="0">Normal or near normal</option>
+                    <option value="1">Reduced activity</option>
+                    <option value="2">Bed/chair bound</option>
+                  </select>
+                </label>
+                <label>
+                  Physical signs of wasting/edema
+                  <select id="sga-physical" required>
+                    <option value="">Select</option>
+                    <option value="0">None</option>
+                    <option value="1">Mild to moderate</option>
+                    <option value="2">Severe</option>
+                  </select>
+                </label>
+              </fieldset>
+
+              <div class="form-actions">
+                <button class="action-btn" type="submit">Calculate Nutrition Scores</button>
+                <button id="reset-nutrition" class="action-btn secondary" type="button">
+                  Clear Scores
+                </button>
+              </div>
+            </form>
+
+            <div id="nutrition-results" class="result-panel hidden" aria-live="polite"></div>
+
+            <button id="complete-assessment" class="action-btn next-action hidden" type="button">
+              Continue to GI Function Assessment
+            </button>
+          </section>
+        </div>
+
+        <div id="step-gi" class="stage hidden">
+          <div class="connector connector-down"></div>
+          <section class="node node-card">
+            <div class="stage-heading">
+              <span class="badge">Step 2</span>
+              <div>
+                <h2>Assess GI Function</h2>
+                <p>
+                  Classify acute gastrointestinal dysfunction in the critically
+                  ill patient, then use the result to guide the branch.
+                </p>
+              </div>
+            </div>
+
+            <form id="gi-form" class="assessment-grid gi-grid">
+              <fieldset class="tool-card">
+                <legend>AGI / AGID Classification</legend>
+                <label>
+                  Current GI symptoms
+                  <select id="gi-symptoms" required>
+                    <option value="">Select</option>
+                    <option value="0">No relevant GI symptoms</option>
+                    <option value="1">Transient nausea, vomiting, distension, or diarrhea</option>
+                    <option value="2">Symptoms requiring intervention or reduced feeding</option>
+                    <option value="3">Persistent feeding intolerance despite therapy</option>
+                    <option value="4">Life-threatening GI condition</option>
+                  </select>
+                </label>
+                <label>
+                  Enteral feeding tolerance
+                  <select id="feeding-tolerance" required>
+                    <option value="">Select</option>
+                    <option value="target">Tolerates target enteral nutrition</option>
+                    <option value="partial">Tolerates partial enteral nutrition</option>
+                    <option value="not-started">Not started because GI function is uncertain</option>
+                    <option value="intolerant">Does not tolerate enteral nutrition</option>
+                    <option value="contraindicated">Enteral route is contraindicated</option>
+                  </select>
+                </label>
+                <label>
+                  Intra-abdominal pressure / hypertension
+                  <select id="iah" required>
+                    <option value="">Select</option>
+                    <option value="0">No intra-abdominal hypertension</option>
+                    <option value="1">IAP 12-15 mmHg</option>
+                    <option value="2">IAP 16-20 mmHg</option>
+                    <option value="3">IAP &gt;20 mmHg or organ dysfunction</option>
+                  </select>
+                </label>
+              </fieldset>
+
+              <fieldset class="tool-card">
+                <legend>Contraindications / Red Flags</legend>
+                <div class="check-list">
+                  <label>
+                    <input type="checkbox" name="red-flags" value="bowel ischemia" />
+                    Suspected bowel ischemia or necrosis
+                  </label>
+                  <label>
+                    <input type="checkbox" name="red-flags" value="perforation or obstruction" />
+                    Bowel perforation or mechanical obstruction
+                  </label>
+                  <label>
+                    <input type="checkbox" name="red-flags" value="abdominal compartment syndrome" />
+                    Abdominal compartment syndrome
+                  </label>
+                  <label>
+                    <input type="checkbox" name="red-flags" value="uncontrolled shock" />
+                    Uncontrolled shock or escalating vasopressors
+                  </label>
+                  <label>
+                    <input type="checkbox" name="red-flags" value="active GI bleeding" />
+                    Active GI bleeding
+                  </label>
+                  <label>
+                    <input type="checkbox" name="red-flags" value="high-output fistula" />
+                    High-output proximal fistula
+                  </label>
+                </div>
+              </fieldset>
+
+              <div class="form-actions">
+                <button class="action-btn" type="submit">Classify GI Function</button>
+              </div>
+            </form>
+
+            <div id="gi-results" class="result-panel hidden" aria-live="polite"></div>
+          </section>
+        </div>
+
+        <div id="step-branches" class="stage hidden">
+          <div class="connector connector-down"></div>
+          <section class="branch-map" aria-label="Feeding route branches">
+            <div class="decision-diamond">
+              <span aria-hidden="true">GI</span>
+              <strong>GI Function?</strong>
+            </div>
+            <div class="branch-lines" aria-hidden="true">
+              <span class="line-enteral"></span>
+              <span class="line-parenteral"></span>
+            </div>
+            <div class="branch-buttons">
+              <button id="enteral-choice" class="route route-enteral" type="button">
+                <span>Enteral</span>
+                <small>Use gut when functional and tolerated</small>
+              </button>
+              <button id="parenteral-choice" class="route route-parenteral" type="button">
+                <span>Parenteral</span>
+                <small>Use when enteral route is unsafe or inadequate</small>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <div id="step-result" class="stage hidden">
+          <div class="connector connector-down"></div>
+          <section class="node node-result">
+            <h2 id="result-title">Pathway Selected</h2>
+            <p id="result-text"></p>
+            <div id="result-context" class="route-context"></div>
+            <button id="restart" class="action-btn secondary" type="button">Restart Flow</button>
+          </section>
+        </div>
+      </section>
+
+      <p class="disclaimer">
+        This pathway is for educational decision support and should be adapted to
+        local ICU protocols and clinician judgment.
+      </p>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
