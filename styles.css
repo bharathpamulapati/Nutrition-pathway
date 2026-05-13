@@ -566,45 +566,106 @@ input[type="range"] {
   font-weight: 600;
 }
 
-.calorie-requirement-fieldset {
-  margin: 0;
+.calorie-range-single {
   min-width: 0;
 }
 
-.calorie-requirement-fieldset > legend.range-heading {
-  float: left;
-  margin-bottom: 10px;
+.calorie-dual-range {
+  margin-top: 4px;
+}
+
+.calorie-dual-range-track-wrap {
+  height: 40px;
+  margin: 6px 0 2px;
+  position: relative;
+}
+
+.calorie-dual-range-track {
+  background: #e2ebe5;
+  border-radius: 999px;
+  height: 6px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.calorie-dual-range-fill {
+  background: var(--enteral);
+  border-radius: 999px;
+  height: 6px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  z-index: 1;
+}
+
+.calorie-dual-range-input {
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+  height: 40px;
+  left: 0;
+  margin: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
   width: 100%;
 }
 
-.calorie-preset-row {
-  align-items: center;
-  clear: both;
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 0.85rem;
-  font-weight: 600;
-  gap: 8px 14px;
-  margin: 0 0 4px;
-}
-
-.preset-label {
-  color: var(--muted);
-  margin-right: 4px;
-}
-
-.preset-option {
-  align-items: center;
-  display: inline-flex;
-  font-weight: 600;
-  gap: 6px;
-}
-
-.calorie-requirement-fieldset .nested-range {
+.calorie-dual-range-input::-webkit-slider-runnable-track {
   background: transparent;
-  border: 0;
+  height: 40px;
+}
+
+.calorie-dual-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #fff;
+  border: 2px solid var(--enteral);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  cursor: grab;
+  height: 18px;
+  margin-top: 11px;
+  pointer-events: auto;
+  width: 18px;
+}
+
+.calorie-dual-range-input::-moz-range-track {
+  background: transparent;
+}
+
+.calorie-dual-range-input::-moz-range-thumb {
+  background: #fff;
+  border: 2px solid var(--enteral);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  cursor: grab;
+  height: 18px;
+  pointer-events: auto;
+  width: 18px;
+}
+
+.calorie-dual-range-min {
+  z-index: 3;
+}
+
+.calorie-dual-range-max {
+  z-index: 4;
+}
+
+.calorie-dual-range-hint {
+  color: var(--muted);
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
   margin-top: 4px;
-  padding: 8px 0 0;
 }
 
 .target-summary {

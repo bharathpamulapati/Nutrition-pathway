@@ -33,7 +33,10 @@ const caloriePercentNote = document.getElementById("calorie-percent-note");
 const calorieTargetMin = document.getElementById("calorie-target-min");
 const calorieTargetMax = document.getElementById("calorie-target-max");
 const calorieTargetRangeValue = document.getElementById("calorie-target-range-value");
-const calorieRangePresetInputs = document.querySelectorAll('input[name="calorie-range-preset"]');
+const calorieRangeFill = document.getElementById("calorie-range-fill");
+
+const CALORIE_KG_RANGE_MIN = 15;
+const CALORIE_KG_RANGE_MAX = 35;
 const productLibrary = document.getElementById("product-library");
 const prepLibraryToggle = document.getElementById("prep-library-toggle");
 const prepLibraryContent = document.getElementById("prep-library-content");
@@ -1382,10 +1385,7 @@ function prepareEnteralPlanner() {
   }
   calorieTargetMin.value = "22";
   calorieTargetMax.value = "28";
-  const customPreset = document.querySelector('input[name="calorie-range-preset"][value="custom"]');
-  if (customPreset) {
-    customPreset.checked = true;
-  }
+  updateCalorieDualRangeFill();
 
   if (estimatedIdealBodyWeight) {
     enteralIbw.value = estimatedIdealBodyWeight;
@@ -1415,35 +1415,23 @@ function syncCalorieKcalPerKgRange(sourceSlider) {
   return { minV, maxV };
 }
 
-function updateCalorieRangePresetRadiosFromSliders() {
-  const minV = Number(calorieTargetMin.value);
-  const maxV = Number(calorieTargetMax.value);
-  const customRadio = document.querySelector('input[name="calorie-range-preset"][value="custom"]');
-  const preset1520 = document.querySelector('input[name="calorie-range-preset"][value="15-20"]');
-  const preset2530 = document.querySelector('input[name="calorie-range-preset"][value="25-30"]');
-  if (!customRadio || !preset1520 || !preset2530) {
+function updateCalorieDualRangeFill() {
+  if (!calorieRangeFill) {
     return;
   }
-  if (minV === 15 && maxV === 20) {
-    preset1520.checked = true;
-  } else if (minV === 25 && maxV === 30) {
-    preset2530.checked = true;
-  } else {
-    customRadio.checked = true;
-  }
-}
-
-function applyCalorieRangePreset(presetValue) {
-  if (presetValue === "15-20") {
-    calorieTargetMin.value = "15";
-    calorieTargetMax.value = "20";
-  } else if (presetValue === "25-30") {
-    calorieTargetMin.value = "25";
-    calorieTargetMax.value = "30";
-  }
+  const lo = Number(calorieTargetMin.value);
+  const hi = Number(calorieTargetMax.value);
+  const span = CALORIE_KG_RANGE_MAX - CALORIE_KG_RANGE_MIN;
+  const leftPct = ((lo - CALORIE_KG_RANGE_MIN) / span) * 100;
+  const rightPct = ((hi - CALORIE_KG_RANGE_MIN) / span) * 100;
+  calorieRangeFill.style.left = `${leftPct}%`;
+  calorieRangeFill.style.width = `${Math.max(0, rightPct - leftPct)}%`;
 }
 
 function updateEnteralTargetDisplay() {
+  const { minV: caloriesPerKgMin, maxV: caloriesPerKgMax } = syncCalorieKcalPerKgRange(null);
+  updateCalorieDualRangeFill();
+
   const day = getNumber("icu-day");
   const idealBodyWeight = getNumber("enteral-ibw");
 
@@ -1472,7 +1460,6 @@ function updateEnteralTargetDisplay() {
 
   const calorieDeliveryPercent = Number(caloriePercent.value);
   const proteinPerKg = Number(proteinTarget.value);
-  const { minV: caloriesPerKgMin, maxV: caloriesPerKgMax } = syncCalorieKcalPerKgRange(null);
   const caloriesPerKgMid = (caloriesPerKgMin + caloriesPerKgMax) / 2;
   const proteinGrams = Math.round(idealBodyWeight * proteinPerKg * 10) / 10;
   const fullCaloriesMin = Math.round(idealBodyWeight * caloriesPerKgMin);
@@ -1676,22 +1663,19 @@ enteralDayForm.addEventListener("submit", (event) => {
 
 calorieTargetMin.addEventListener("input", () => {
   syncCalorieKcalPerKgRange(calorieTargetMin);
-  updateCalorieRangePresetRadiosFromSliders();
   updateEnteralTargetDisplay();
 });
 
 calorieTargetMax.addEventListener("input", () => {
   syncCalorieKcalPerKgRange(calorieTargetMax);
-  updateCalorieRangePresetRadiosFromSliders();
   updateEnteralTargetDisplay();
 });
 
-calorieRangePresetInputs.forEach((input) => {
-  input.addEventListener("change", () => {
-    if (input.value !== "custom") {
-      applyCalorieRangePreset(input.value);
-    }
-    updateEnteralTargetDisplay();
+[calorieTargetMin, calorieTargetMax].forEach((slider) => {
+  slider.addEventListener("pointerdown", () => {
+    slider.style.zIndex = "5";
+    const other = slider === calorieTargetMin ? calorieTargetMax : calorieTargetMin;
+    other.style.zIndex = "4";
   });
 });
 

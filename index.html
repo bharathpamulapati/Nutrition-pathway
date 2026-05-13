@@ -438,33 +438,43 @@
                     <input id="protein-target" type="range" min="0.3" max="2.5" step="0.1" value="1.2" />
                   </label>
 
-                  <fieldset class="range-control calorie-requirement-fieldset">
-                    <legend class="range-heading">
-                      Calorie requirement target
+                  <label class="range-control calorie-range-single">
+                    <span class="range-heading">
+                      Calorie requirement target (15–35 kcal/kg/day)
                       <strong><span id="calorie-target-range-value">22–28</span> kcal/kg/day</strong>
-                    </legend>
-                    <p class="calorie-preset-row">
-                      <span class="preset-label">Quick range</span>
-                      <label class="preset-option"
-                        ><input type="radio" name="calorie-range-preset" value="custom" checked />
-                        Custom (15–35)</label
-                      >
-                      <label class="preset-option"
-                        ><input type="radio" name="calorie-range-preset" value="15-20" /> 15–20</label
-                      >
-                      <label class="preset-option"
-                        ><input type="radio" name="calorie-range-preset" value="25-30" /> 25–30</label
-                      >
-                    </p>
-                    <label class="range-control nested-range">
-                      <span>Minimum (kcal/kg/day)</span>
-                      <input id="calorie-target-min" type="range" min="15" max="35" step="1" value="22" />
-                    </label>
-                    <label class="range-control nested-range">
-                      <span>Maximum (kcal/kg/day)</span>
-                      <input id="calorie-target-max" type="range" min="15" max="35" step="1" value="28" />
-                    </label>
-                  </fieldset>
+                    </span>
+                    <div
+                      class="calorie-dual-range"
+                      role="group"
+                      aria-label="Calorie requirement band from 15 to 35 kilocalories per kilogram per day"
+                    >
+                      <div class="calorie-dual-range-track-wrap">
+                        <div class="calorie-dual-range-track" aria-hidden="true"></div>
+                        <div class="calorie-dual-range-fill" id="calorie-range-fill" aria-hidden="true"></div>
+                        <input
+                          id="calorie-target-min"
+                          class="calorie-dual-range-input calorie-dual-range-min"
+                          type="range"
+                          min="15"
+                          max="35"
+                          step="1"
+                          value="22"
+                          aria-label="Minimum kcal per kg per day"
+                        />
+                        <input
+                          id="calorie-target-max"
+                          class="calorie-dual-range-input calorie-dual-range-max"
+                          type="range"
+                          min="15"
+                          max="35"
+                          step="1"
+                          value="28"
+                          aria-label="Maximum kcal per kg per day"
+                        />
+                      </div>
+                      <small class="calorie-dual-range-hint">Single track: left handle sets minimum, right handle sets maximum.</small>
+                    </div>
+                  </label>
                 </div>
 
                 <div id="enteral-target-results" class="target-summary" aria-live="polite"></div>
