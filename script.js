@@ -580,29 +580,21 @@ function updateFeedConfiguration() {
     createSummaryTile("Time per feed", `${formatNumber(feedConfig.timePerFeed)} hours`),
   ].join("");
 
-  const calorieTargetLabel =
-    feedConfig.calorieTargetMinKcal != null && feedConfig.calorieTargetMaxKcal != null
-      ? feedConfig.calorieTargetMinKcal === feedConfig.calorieTargetMaxKcal
-        ? `${Math.round(feedConfig.calorieTargetMinKcal)} kcal/day`
-        : `${Math.round(feedConfig.calorieTargetMinKcal)}–${Math.round(
-            feedConfig.calorieTargetMaxKcal
-          )} kcal/day`
-      : null;
-  const calorieDeliveredDetail =
+  const pctOfCalorieTarget =
     feedConfig.calorieTarget != null
-      ? `${Math.round((feedConfig.deliveredCalories / feedConfig.calorieTarget) * 100)}% delivered vs midpoint of range`
-      : "Complete Enteral Nutrition Target Planner";
+      ? `${Math.round((feedConfig.deliveredCalories / feedConfig.calorieTarget) * 100)}%`
+      : null;
 
   feedTargetAnalysis.innerHTML = [
     createSummaryTile(
-      "Calorie target required",
-      calorieTargetLabel || "Set in planner",
-      feedConfig.calorieTarget ? "" : "Complete Enteral Nutrition Target Planner"
-    ),
-    createSummaryTile(
       "Calories delivered",
       `${Math.round(feedConfig.deliveredCalories)} kcal/day`,
-      feedConfig.calorieTarget ? calorieDeliveredDetail : ""
+      ""
+    ),
+    createSummaryTile(
+      "% of target calories delivered",
+      pctOfCalorieTarget ?? "Set in planner",
+      feedConfig.calorieTarget ? "" : "Complete Enteral Nutrition Target Planner"
     ),
     createSummaryTile(
       "Protein target required",
