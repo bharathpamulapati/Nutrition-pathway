@@ -580,32 +580,42 @@ function updateFeedConfiguration() {
     createSummaryTile("Time per feed", `${formatNumber(feedConfig.timePerFeed)} hours`),
   ].join("");
 
+  const calorieTargetLabel =
+    feedConfig.calorieTargetMinKcal != null && feedConfig.calorieTargetMaxKcal != null
+      ? feedConfig.calorieTargetMinKcal === feedConfig.calorieTargetMaxKcal
+        ? `${Math.round(feedConfig.calorieTargetMinKcal)} kcal/day`
+        : `${Math.round(feedConfig.calorieTargetMinKcal)}-${Math.round(
+            feedConfig.calorieTargetMaxKcal
+          )} kcal/day`
+      : "Set in planner";
   const pctOfCalorieTarget =
     feedConfig.calorieTarget != null
-      ? `${Math.round((feedConfig.deliveredCalories / feedConfig.calorieTarget) * 100)}%`
-      : null;
+      ? `${Math.round((feedConfig.deliveredCalories / feedConfig.calorieTarget) * 100)}% of target delivered`
+      : "Complete Enteral Nutrition Target Planner";
+  const pctOfProteinTarget =
+    feedConfig.proteinRequired != null
+      ? `${Math.round((feedConfig.deliveredProtein / feedConfig.proteinRequired) * 100)}% of target delivered`
+      : "Complete Enteral Nutrition Target Planner";
 
   feedTargetAnalysis.innerHTML = [
     createSummaryTile(
-      "Calories delivered",
-      `${Math.round(feedConfig.deliveredCalories)} kcal/day`,
-      ""
+      "Calorie target required",
+      calorieTargetLabel
     ),
     createSummaryTile(
-      "% of target calories delivered",
-      pctOfCalorieTarget ?? "Set in planner",
-      feedConfig.calorieTarget ? "" : "Complete Enteral Nutrition Target Planner"
+      "Calories delivered",
+      `${Math.round(feedConfig.deliveredCalories)} kcal/day`,
+      pctOfCalorieTarget
     ),
     createSummaryTile(
       "Protein target required",
       feedConfig.proteinRequired ? `${formatNumber(feedConfig.proteinRequired)} g/day` : "Set in planner",
-      feedConfig.proteinRequired
-        ? `${Math.round((feedConfig.deliveredProtein / feedConfig.proteinRequired) * 100)}% delivered`
-        : "Complete Enteral Nutrition Target Planner"
+      ""
     ),
     createSummaryTile(
       "Protein delivered",
-      `${formatNumber(feedConfig.deliveredProtein)} g/day`
+      `${formatNumber(feedConfig.deliveredProtein)} g/day`,
+      pctOfProteinTarget
     ),
   ].join("");
 
