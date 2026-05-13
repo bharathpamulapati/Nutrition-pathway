@@ -425,7 +425,8 @@
                     Day-based total calorie target
                     <strong id="calorie-percent-value">25%</strong>
                   </span>
-                  <input id="calorie-percent" type="range" min="10" max="100" step="5" value="25" />
+                  <input id="calorie-percent" type="range" min="10" max="95" step="5" value="25" />
+                  <small class="range-note" id="calorie-percent-note"></small>
                 </label>
 
                 <div class="target-slider-grid">
@@ -437,13 +438,33 @@
                     <input id="protein-target" type="range" min="0.3" max="2.5" step="0.1" value="1.2" />
                   </label>
 
-                  <label class="range-control">
-                    <span class="range-heading">
+                  <fieldset class="range-control calorie-requirement-fieldset">
+                    <legend class="range-heading">
                       Calorie requirement target
-                      <strong><span id="calorie-target-value">25</span> kcal/kg/day</strong>
-                    </span>
-                    <input id="calorie-target" type="range" min="15" max="30" step="1" value="25" />
-                  </label>
+                      <strong><span id="calorie-target-range-value">22–28</span> kcal/kg/day</strong>
+                    </legend>
+                    <p class="calorie-preset-row">
+                      <span class="preset-label">Quick range</span>
+                      <label class="preset-option"
+                        ><input type="radio" name="calorie-range-preset" value="custom" checked />
+                        Custom (15–35)</label
+                      >
+                      <label class="preset-option"
+                        ><input type="radio" name="calorie-range-preset" value="15-20" /> 15–20</label
+                      >
+                      <label class="preset-option"
+                        ><input type="radio" name="calorie-range-preset" value="25-30" /> 25–30</label
+                      >
+                    </p>
+                    <label class="range-control nested-range">
+                      <span>Minimum (kcal/kg/day)</span>
+                      <input id="calorie-target-min" type="range" min="15" max="35" step="1" value="22" />
+                    </label>
+                    <label class="range-control nested-range">
+                      <span>Maximum (kcal/kg/day)</span>
+                      <input id="calorie-target-max" type="range" min="15" max="35" step="1" value="28" />
+                    </label>
+                  </fieldset>
                 </div>
 
                 <div id="enteral-target-results" class="target-summary" aria-live="polite"></div>

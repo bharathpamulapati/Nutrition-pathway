@@ -21,6 +21,7 @@ const parenteralChoice = document.getElementById("parenteral-choice");
 
 const enteralPlanner = document.getElementById("enteral-planner");
 const enteralDayForm = document.getElementById("enteral-day-form");
+const icuDayInput = document.getElementById("icu-day");
 const enteralTargetControls = document.getElementById("enteral-target-controls");
 const enteralTargetResults = document.getElementById("enteral-target-results");
 const enteralIbw = document.getElementById("enteral-ibw");
@@ -28,8 +29,11 @@ const caloriePercent = document.getElementById("calorie-percent");
 const caloriePercentValue = document.getElementById("calorie-percent-value");
 const proteinTarget = document.getElementById("protein-target");
 const proteinTargetValue = document.getElementById("protein-target-value");
-const calorieTarget = document.getElementById("calorie-target");
-const calorieTargetValue = document.getElementById("calorie-target-value");
+const caloriePercentNote = document.getElementById("calorie-percent-note");
+const calorieTargetMin = document.getElementById("calorie-target-min");
+const calorieTargetMax = document.getElementById("calorie-target-max");
+const calorieTargetRangeValue = document.getElementById("calorie-target-range-value");
+const calorieRangePresetInputs = document.querySelectorAll('input[name="calorie-range-preset"]');
 const productLibrary = document.getElementById("product-library");
 const prepLibraryToggle = document.getElementById("prep-library-toggle");
 const prepLibraryContent = document.getElementById("prep-library-content");
@@ -525,8 +529,11 @@ function getFeedConfigurationData() {
   const proteinPerFeed = adjustedProteinPerMl * volumePerFeed;
   const deliveredCalories = adjustedCalDensity * totalVolumePerDay;
   const deliveredProtein = adjustedProteinPerMl * totalVolumePerDay;
-  const calorieTarget = pathwayState.enteralPlan?.fullCalories || null;
-  const proteinRequired = pathwayState.enteralPlan?.proteinGrams || null;
+  const plan = pathwayState.enteralPlan;
+  const calorieTarget = plan?.fullCalories || null;
+  const calorieTargetMinKcal = plan?.fullCaloriesMin ?? null;
+  const calorieTargetMaxKcal = plan?.fullCaloriesMax ?? null;
+  const proteinRequired = plan?.proteinGrams || null;
 
   return {
     selectedProduct,
@@ -548,6 +555,8 @@ function getFeedConfigurationData() {
     deliveredCalories,
     deliveredProtein,
     calorieTarget,
+    calorieTargetMinKcal,
+    calorieTargetMaxKcal,
     proteinRequired,
   };
 }
@@ -568,13 +577,24 @@ function updateFeedConfiguration() {
     createSummaryTile("Time per feed", `${formatNumber(feedConfig.timePerFeed)} hours`),
   ].join("");
 
+  const calorieTargetLabel =
+    feedConfig.calorieTargetMinKcal != null && feedConfig.calorieTargetMaxKcal != null
+      ? feedConfig.calorieTargetMinKcal === feedConfig.calorieTargetMaxKcal
+        ? `${Math.round(feedConfig.calorieTargetMinKcal)} kcal/day`
+        : `${Math.round(feedConfig.calorieTargetMinKcal)}–${Math.round(
+            feedConfig.calorieTargetMaxKcal
+          )} kcal/day`
+      : null;
+  const calorieDeliveredDetail =
+    feedConfig.calorieTarget != null
+      ? `${Math.round((feedConfig.deliveredCalories / feedConfig.calorieTarget) * 100)}% delivered vs midpoint of range`
+      : "Complete Enteral Nutrition Target Planner";
+
   feedTargetAnalysis.innerHTML = [
     createSummaryTile(
       "Calorie target required",
-      feedConfig.calorieTarget ? `${Math.round(feedConfig.calorieTarget)} kcal/day` : "Set in planner",
-      feedConfig.calorieTarget
-        ? `${Math.round((feedConfig.deliveredCalories / feedConfig.calorieTarget) * 100)}% delivered`
-        : "Complete Enteral Nutrition Target Planner"
+      calorieTargetLabel || "Set in planner",
+      feedConfig.calorieTarget ? calorieDeliveredDetail : "Complete Enteral Nutrition Target Planner"
     ),
     createSummaryTile(
       "Calories delivered",
@@ -660,8 +680,16 @@ function renderDietPrescription(shouldScroll = true) {
   const feedConfig = pathwayState.feedConfig || getFeedConfigurationData();
   const calculationWeight = patient.calculationWeight;
   const proteinWeight = patient.idealBodyWeight || calculationWeight;
-  const calorieMin = calculationWeight * 25;
-  const calorieMax = calculationWeight * 30;
+  const plan = pathwayState.enteralPlan;
+  let calorieMin;
+  let calorieMax;
+  if (plan?.fullCaloriesMin != null && plan?.fullCaloriesMax != null) {
+    calorieMin = plan.fullCaloriesMin;
+    calorieMax = plan.fullCaloriesMax;
+  } else {
+    calorieMin = calculationWeight * 25;
+    calorieMax = calculationWeight * 30;
+  }
   const proteinMin = proteinWeight * 1.2;
   const proteinMax = proteinWeight * 1.5;
   const proteinCaloriesMin = proteinMin * 4;
@@ -1330,11 +1358,7 @@ function getSuggestedCaloriePercent(day) {
     return 50;
   }
 
-  if (day === 3) {
-    return 75;
-  }
-
-  return 100;
+  return 70;
 }
 
 function getEstimatedIdealBodyWeight() {
@@ -1350,6 +1374,18 @@ function prepareEnteralPlanner() {
   enteralTargetResults.innerHTML = "";
   pathwayState.enteralPlan = null;
 
+  caloriePercent.value = "25";
+  caloriePercent.disabled = false;
+  if (caloriePercentNote) {
+    caloriePercentNote.textContent = "";
+  }
+  calorieTargetMin.value = "22";
+  calorieTargetMax.value = "28";
+  const customPreset = document.querySelector('input[name="calorie-range-preset"][value="custom"]');
+  if (customPreset) {
+    customPreset.checked = true;
+  }
+
   if (estimatedIdealBodyWeight) {
     enteralIbw.value = estimatedIdealBodyWeight;
   }
@@ -1363,6 +1399,49 @@ function resetEnteralPlanner() {
   pathwayState.enteralPlan = null;
 }
 
+function syncCalorieKcalPerKgRange(sourceSlider) {
+  let minV = Number(calorieTargetMin.value);
+  let maxV = Number(calorieTargetMax.value);
+  if (minV > maxV) {
+    if (sourceSlider === calorieTargetMax) {
+      calorieTargetMin.value = String(maxV);
+      minV = maxV;
+    } else {
+      calorieTargetMax.value = String(minV);
+      maxV = minV;
+    }
+  }
+  return { minV, maxV };
+}
+
+function updateCalorieRangePresetRadiosFromSliders() {
+  const minV = Number(calorieTargetMin.value);
+  const maxV = Number(calorieTargetMax.value);
+  const customRadio = document.querySelector('input[name="calorie-range-preset"][value="custom"]');
+  const preset1520 = document.querySelector('input[name="calorie-range-preset"][value="15-20"]');
+  const preset2530 = document.querySelector('input[name="calorie-range-preset"][value="25-30"]');
+  if (!customRadio || !preset1520 || !preset2530) {
+    return;
+  }
+  if (minV === 15 && maxV === 20) {
+    preset1520.checked = true;
+  } else if (minV === 25 && maxV === 30) {
+    preset2530.checked = true;
+  } else {
+    customRadio.checked = true;
+  }
+}
+
+function applyCalorieRangePreset(presetValue) {
+  if (presetValue === "15-20") {
+    calorieTargetMin.value = "15";
+    calorieTargetMax.value = "20";
+  } else if (presetValue === "25-30") {
+    calorieTargetMin.value = "25";
+    calorieTargetMax.value = "30";
+  }
+}
+
 function updateEnteralTargetDisplay() {
   const day = getNumber("icu-day");
   const idealBodyWeight = getNumber("enteral-ibw");
@@ -1371,27 +1450,64 @@ function updateEnteralTargetDisplay() {
     return;
   }
 
+  if (day >= 3) {
+    caloriePercent.value = "70";
+    caloriePercent.disabled = true;
+    if (caloriePercentNote) {
+      caloriePercentNote.textContent =
+        "From ICU day 3 onward, day-based delivery is fixed at 70% of full calorie requirement.";
+    }
+  } else {
+    caloriePercent.disabled = false;
+    let pct = Number(caloriePercent.value);
+    if (pct > 95) {
+      pct = 95;
+      caloriePercent.value = "95";
+    }
+    if (caloriePercentNote) {
+      caloriePercentNote.textContent = "Delivery is capped below 100% (maximum 95%).";
+    }
+  }
+
   const calorieDeliveryPercent = Number(caloriePercent.value);
   const proteinPerKg = Number(proteinTarget.value);
-  const caloriesPerKg = Number(calorieTarget.value);
+  const { minV: caloriesPerKgMin, maxV: caloriesPerKgMax } = syncCalorieKcalPerKgRange(null);
+  const caloriesPerKgMid = (caloriesPerKgMin + caloriesPerKgMax) / 2;
   const proteinGrams = Math.round(idealBodyWeight * proteinPerKg * 10) / 10;
-  const fullCalories = Math.round(idealBodyWeight * caloriesPerKg);
-  const dayCalories = Math.round(fullCalories * (calorieDeliveryPercent / 100));
+  const fullCaloriesMin = Math.round(idealBodyWeight * caloriesPerKgMin);
+  const fullCaloriesMax = Math.round(idealBodyWeight * caloriesPerKgMax);
+  const fullCaloriesMid = Math.round(idealBodyWeight * caloriesPerKgMid);
+  const dayCaloriesMin = Math.round(fullCaloriesMin * (calorieDeliveryPercent / 100));
+  const dayCaloriesMax = Math.round(fullCaloriesMax * (calorieDeliveryPercent / 100));
 
   caloriePercentValue.textContent = `${calorieDeliveryPercent}%`;
   proteinTargetValue.textContent = proteinPerKg.toFixed(1);
-  calorieTargetValue.textContent = caloriesPerKg.toString();
+  calorieTargetRangeValue.textContent =
+    caloriesPerKgMin === caloriesPerKgMax
+      ? `${caloriesPerKgMin}`
+      : `${caloriesPerKgMin}–${caloriesPerKgMax}`;
 
   pathwayState.enteralPlan = {
     day,
     idealBodyWeight,
     calorieDeliveryPercent,
     proteinPerKg,
-    caloriesPerKg,
+    caloriesPerKgMin,
+    caloriesPerKgMax,
+    caloriesPerKgMid,
     proteinGrams,
-    fullCalories,
-    dayCalories,
+    fullCalories: fullCaloriesMid,
+    fullCaloriesMin,
+    fullCaloriesMax,
+    dayCaloriesMin,
+    dayCaloriesMax,
+    dayCalories: Math.round(fullCaloriesMid * (calorieDeliveryPercent / 100)),
   };
+
+  const fullCalorieDetail =
+    caloriesPerKgMin === caloriesPerKgMax
+      ? `${caloriesPerKgMin} kcal/kg/day x IBW ${idealBodyWeight} kg`
+      : `${caloriesPerKgMin}–${caloriesPerKgMax} kcal/kg/day x IBW ${idealBodyWeight} kg`;
 
   enteralTargetResults.innerHTML = `
     <div class="target-number-grid">
@@ -1402,16 +1518,16 @@ function updateEnteralTargetDisplay() {
       </article>
       <article>
         <span>Full calorie requirement</span>
-        <strong>${fullCalories} kcal/day</strong>
-        <small>${caloriesPerKg} kcal/kg/day x IBW ${idealBodyWeight} kg</small>
+        <strong>${fullCaloriesMin === fullCaloriesMax ? fullCaloriesMin : `${fullCaloriesMin}–${fullCaloriesMax}`} kcal/day</strong>
+        <small>${fullCalorieDetail}</small>
       </article>
       <article>
         <span>ICU day ${day} calorie target</span>
-        <strong>${dayCalories} kcal/day</strong>
+        <strong>${dayCaloriesMin === dayCaloriesMax ? dayCaloriesMin : `${dayCaloriesMin}–${dayCaloriesMax}`} kcal/day</strong>
         <small>${calorieDeliveryPercent}% of full calorie requirement</small>
       </article>
     </div>
-    <p class="summary">Suggested day-based advancement: gradually increase the intake to target 70% by day 3 if tolerated.</p>
+    <p class="summary">Advance feeding as tolerated; from ICU day 3 onward the planner uses 70% of full calories (never 100%).</p>
   `;
   updateFeedConfiguration();
 }
@@ -1553,9 +1669,38 @@ enteralDayForm.addEventListener("submit", (event) => {
   productLibrary.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-[caloriePercent, proteinTarget, calorieTarget, enteralIbw].forEach((input) => {
+[caloriePercent, proteinTarget, enteralIbw].forEach((input) => {
   input.addEventListener("input", updateEnteralTargetDisplay);
 });
+
+calorieTargetMin.addEventListener("input", () => {
+  syncCalorieKcalPerKgRange(calorieTargetMin);
+  updateCalorieRangePresetRadiosFromSliders();
+  updateEnteralTargetDisplay();
+});
+
+calorieTargetMax.addEventListener("input", () => {
+  syncCalorieKcalPerKgRange(calorieTargetMax);
+  updateCalorieRangePresetRadiosFromSliders();
+  updateEnteralTargetDisplay();
+});
+
+calorieRangePresetInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    if (input.value !== "custom") {
+      applyCalorieRangePreset(input.value);
+    }
+    updateEnteralTargetDisplay();
+  });
+});
+
+if (icuDayInput) {
+  icuDayInput.addEventListener("input", () => {
+    if (!enteralTargetControls.classList.contains("hidden")) {
+      updateEnteralTargetDisplay();
+    }
+  });
+}
 
 [feedDilution, feedHours, feedRate].forEach((input) => {
   input.addEventListener("input", updateFeedConfiguration);

@@ -560,6 +560,53 @@ input[type="range"] {
   white-space: nowrap;
 }
 
+.range-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.calorie-requirement-fieldset {
+  margin: 0;
+  min-width: 0;
+}
+
+.calorie-requirement-fieldset > legend.range-heading {
+  float: left;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.calorie-preset-row {
+  align-items: center;
+  clear: both;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  font-weight: 600;
+  gap: 8px 14px;
+  margin: 0 0 4px;
+}
+
+.preset-label {
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.preset-option {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.calorie-requirement-fieldset .nested-range {
+  background: transparent;
+  border: 0;
+  margin-top: 4px;
+  padding: 8px 0 0;
+}
+
 .target-summary {
   background: #fff;
   border: 1px solid #cfe0d5;
