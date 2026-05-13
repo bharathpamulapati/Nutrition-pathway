@@ -314,20 +314,13 @@ function updateProductFilterSummary(products) {
   }.`;
 }
 
-function getCompareSelectionLimit() {
-  const selected = document.querySelector('input[name="compare-count"]:checked');
-  const value = Number(selected?.value);
-  return value === 4 ? 4 : 3;
-}
-
 function updateCompareControls() {
-  const limit = getCompareSelectionLimit();
   const selectedCount = selectedCompareProductNames.length;
   compareSelectionCount.textContent =
     selectedCount === 0
-      ? `Select any ${limit} preparations to compare.`
-      : `${selectedCount} of ${limit} preparations selected for comparison.`;
-  compareProducts.disabled = selectedCount !== limit;
+      ? "Select any 3 preparations to compare."
+      : `${selectedCount} of 3 preparations selected for comparison.`;
+  compareProducts.disabled = selectedCount !== 3;
 }
 
 function getCompareRows() {
@@ -470,12 +463,11 @@ function renderPlannerCalorieComparisonModal(products, plan) {
 }
 
 function renderComparisonModal() {
-  const limit = getCompareSelectionLimit();
   const products = selectedCompareProductNames
     .map((name) => enteralPreparations.find((product) => product.name === name))
     .filter(Boolean);
 
-  if (products.length !== limit) {
+  if (products.length !== 3) {
     return;
   }
 
@@ -1632,11 +1624,6 @@ function updateEnteralTargetDisplay() {
       </article>
     </div>
     <p class="summary">Advance feeding as tolerated; from ICU day 3 onward the planner uses 70% of full calories (never 100%).</p>
-    <p class="summary compare-planner-hint">
-      To compare <strong>3 or 4</strong> formulae against this full calorie requirement band (manufacturer dilution and infusion rates),
-      open <strong>Enteral Preparation Library</strong>, choose <strong>Comparison table size</strong>, tick the preparations, then click
-      <strong>Compare selected</strong>.
-    </p>
   `;
   updateFeedConfiguration();
 }
@@ -1818,14 +1805,6 @@ document.querySelectorAll('input[name="product-filter"]').forEach((input) => {
 
 compareProducts.addEventListener("click", renderComparisonModal);
 
-document.querySelectorAll('input[name="compare-count"]').forEach((input) => {
-  input.addEventListener("change", () => {
-    const limit = getCompareSelectionLimit();
-    selectedCompareProductNames = selectedCompareProductNames.slice(0, limit);
-    renderEnteralPreparations();
-  });
-});
-
 closeCompare.addEventListener("click", () => {
   compareModal.classList.add("hidden");
 });
@@ -1859,8 +1838,7 @@ productGrid.addEventListener("click", (event) => {
     const productName = compareCheckbox.value;
 
     if (compareCheckbox.checked) {
-      const limit = getCompareSelectionLimit();
-      if (selectedCompareProductNames.length >= limit) {
+      if (selectedCompareProductNames.length >= 3) {
         compareCheckbox.checked = false;
       } else {
         selectedCompareProductNames.push(productName);
