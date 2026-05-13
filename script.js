@@ -594,11 +594,12 @@ function updateFeedConfiguration() {
     createSummaryTile(
       "Calorie target required",
       calorieTargetLabel || "Set in planner",
-      feedConfig.calorieTarget ? calorieDeliveredDetail : "Complete Enteral Nutrition Target Planner"
+      feedConfig.calorieTarget ? "" : "Complete Enteral Nutrition Target Planner"
     ),
     createSummaryTile(
       "Calories delivered",
-      `${Math.round(feedConfig.deliveredCalories)} kcal/day`
+      `${Math.round(feedConfig.deliveredCalories)} kcal/day`,
+      feedConfig.calorieTarget ? calorieDeliveredDetail : ""
     ),
     createSummaryTile(
       "Protein target required",
