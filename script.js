@@ -47,8 +47,6 @@ const compareProducts = document.getElementById("compare-products");
 const compareModal = document.getElementById("compare-modal");
 const compareTableWrap = document.getElementById("compare-table-wrap");
 const closeCompare = document.getElementById("close-compare");
-const compareModalTitle = document.getElementById("compare-modal-title");
-const compareModalEyebrow = document.getElementById("compare-modal-eyebrow");
 const feedConfigurator = document.querySelector(".feed-configurator");
 const feedProductName = document.getElementById("feed-product-name");
 const feedDilution = document.getElementById("feed-dilution");
@@ -318,9 +316,9 @@ function updateCompareControls() {
   const selectedCount = selectedCompareProductNames.length;
   compareSelectionCount.textContent =
     selectedCount === 0
-      ? "Select any 3 preparations to compare."
-      : `${selectedCount} of 3 preparations selected for comparison.`;
-  compareProducts.disabled = selectedCount !== 3;
+      ? "Select any 4 preparations to compare."
+      : `${selectedCount} of 4 preparations selected for comparison.`;
+  compareProducts.disabled = selectedCount !== 4;
 }
 
 function getCompareRows() {
@@ -345,12 +343,13 @@ function getCompareRows() {
   ];
 }
 
-function renderGenericComparisonModal(products) {
-  if (compareModalTitle) {
-    compareModalTitle.textContent = "Commercial Enteral Preparation Comparison";
-  }
-  if (compareModalEyebrow) {
-    compareModalEyebrow.textContent = "Product comparison";
+function renderComparisonModal() {
+  const products = selectedCompareProductNames
+    .map((name) => enteralPreparations.find((product) => product.name === name))
+    .filter(Boolean);
+
+  if (products.length !== 4) {
+    return;
   }
 
   const rows = getCompareRows()
@@ -378,111 +377,6 @@ function renderGenericComparisonModal(products) {
     </table>
   `;
   compareModal.classList.remove("hidden");
-}
-
-function renderPlannerCalorieComparisonModal(products, plan) {
-  if (compareModalTitle) {
-    compareModalTitle.textContent = "Formula comparison vs planner calorie range";
-  }
-  if (compareModalEyebrow) {
-    compareModalEyebrow.textContent = "Calorie target comparison";
-  }
-
-  const hours = Number(feedHours.value) || 18;
-  const kcalMin = plan.fullCaloriesMin;
-  const kcalMax = plan.fullCaloriesMax;
-  const rangeLabel = kcalMin === kcalMax ? `${kcalMin}` : `${kcalMin}–${kcalMax}`;
-
-  const headerCells = products.map((product) => `<th scope="col">${product.name}</th>`).join("");
-
-  const dilutionCells = products.map((product) => `<td>${product.dilution}</td>`).join("");
-
-  const densityCells = products
-    .map((product) => {
-      const density = getConstituentNumber(product, "Cal Density");
-      return `<td>${density ? `${formatNumber(density, 2)} kcal/mL` : "—"}</td>`;
-    })
-    .join("");
-
-  const rateCells = products
-    .map((product) => {
-      const density = getConstituentNumber(product, "Cal Density");
-      if (!density || !hours || kcalMin == null || kcalMax == null) {
-        return `<td>—</td>`;
-      }
-      const rLow = kcalMin / (density * hours);
-      const rHigh = kcalMax / (density * hours);
-      const lo = Math.round(Math.min(rLow, rHigh));
-      const hi = Math.round(Math.max(rLow, rHigh));
-      let text = lo === hi ? `${lo} mL/h` : `${lo}–${hi} mL/h`;
-      const notes = [];
-      if (hi > 150) {
-        notes.push("upper rate above 150 mL/h");
-      }
-      if (lo < 20 && lo > 0) {
-        notes.push("lower rate below 20 mL/h");
-      }
-      if (notes.length) {
-        text += ` <span class="compare-rate-note">(${notes.join("; ")})</span>`;
-      }
-      return `<td>${text}</td>`;
-    })
-    .join("");
-
-  compareTableWrap.innerHTML = `
-    <p class="compare-planner-intro">
-      Planner full calorie requirement band: <strong>${rangeLabel} kcal/day</strong>.
-      Values below use <strong>manufacturer standard dilution</strong> and continuous infusion over
-      <strong>${hours}</strong> hours per day (from <em>Configure feeds → Feeding duration</em>).
-      Daily kcal delivered ≈ infusion rate (mL/h) × hours × kcal/mL.
-    </p>
-    <table class="compare-table compare-planner-table">
-      <thead>
-        <tr>
-          <th scope="col">Parameter</th>
-          ${headerCells}
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <th scope="row">Manufacturer recommended dilution</th>
-          ${dilutionCells}
-        </tr>
-        <tr>
-          <th scope="row">Calorie density at standard dilution</th>
-          ${densityCells}
-        </tr>
-        <tr>
-          <th scope="row">Infusion rate matching planner kcal range</th>
-          ${rateCells}
-        </tr>
-      </tbody>
-    </table>
-  `;
-  compareModal.classList.remove("hidden");
-}
-
-function renderComparisonModal() {
-  const products = selectedCompareProductNames
-    .map((name) => enteralPreparations.find((product) => product.name === name))
-    .filter(Boolean);
-
-  if (products.length !== 3) {
-    return;
-  }
-
-  const plan = pathwayState.enteralPlan;
-  if (
-    plan &&
-    plan.fullCaloriesMin != null &&
-    plan.fullCaloriesMax != null &&
-    plan.fullCaloriesMin >= 0 &&
-    plan.fullCaloriesMax > 0
-  ) {
-    renderPlannerCalorieComparisonModal(products, plan);
-  } else {
-    renderGenericComparisonModal(products);
-  }
 }
 
 function formatNumber(value, decimals = 1) {
@@ -1838,7 +1732,7 @@ productGrid.addEventListener("click", (event) => {
     const productName = compareCheckbox.value;
 
     if (compareCheckbox.checked) {
-      if (selectedCompareProductNames.length >= 3) {
+      if (selectedCompareProductNames.length >= 4) {
         compareCheckbox.checked = false;
       } else {
         selectedCompareProductNames.push(productName);

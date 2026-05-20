@@ -819,19 +819,6 @@ input[type="range"] {
   transform: none;
 }
 
-.compare-planner-intro {
-  color: #344556;
-  font-size: 0.92rem;
-  line-height: 1.45;
-  margin: 0 0 14px;
-}
-
-.compare-rate-note {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
 .product-grid {
   display: grid;
   gap: 18px;
