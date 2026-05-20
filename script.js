@@ -101,7 +101,10 @@ const CELEVIDA_FEED_CALORIES = 220;
 
 function getCelevidaVariantMetrics(variantKey) {
   const densityKcalPerMl = Number(variantKey);
-  const volumeMl = Math.round((CELEVIDA_FEED_CALORIES / densityKcalPerMl) * 10) / 10;
+  const exactVolumeMl = CELEVIDA_FEED_CALORIES / densityKcalPerMl;
+  const wholePart = Math.floor(exactVolumeMl);
+  const decimalPart = exactVolumeMl - wholePart;
+  const volumeMl = decimalPart > 0.5 ? wholePart + 1 : wholePart;
   const calDensity =
     variantKey === "1" || variantKey === "2"
       ? `${densityKcalPerMl.toFixed(2)} kcal/ml`
