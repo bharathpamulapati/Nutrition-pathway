@@ -96,12 +96,121 @@ function createPreparation(
   };
 }
 
+const CELEVIDA_PRODUCT_NAME = "CELEVIDA EN";
+
+function createCelevidaPreparation() {
+  return {
+    name: CELEVIDA_PRODUCT_NAME,
+    isCelevida: true,
+    type: "Standard",
+    manufacturer: "Nestle-Dr Reddy",
+    variants: [
+      {
+        key: "1",
+        label: "1 Kcal/mL",
+        calDensity: "0.96 kcal/ml",
+        totalVolume: "230 ml",
+        dilution: "Standard Dilution: 2 leveled scoops (50g) in 200ml water",
+        tags: ["Low Protein"],
+      },
+      {
+        key: "1.52",
+        label: "1.52 Kcal/mL",
+        calDensity: "1.47 kcal/ml",
+        totalVolume: "150 ml",
+        dilution: "Standard Dilution: 2 leveled scoops (50g) in 125ml water",
+        tags: ["Low Protein"],
+      },
+      {
+        key: "1.69",
+        label: "1.69 Kcal/mL",
+        calDensity: "1.63 kcal/ml",
+        totalVolume: "135 ml",
+        dilution: "Standard Dilution: 2 leveled scoops (50g) in 110ml water",
+        tags: ["Low Protein", "High Cal Density"],
+      },
+      {
+        key: "2",
+        label: "2 Kcal/mL",
+        calDensity: "2.00 kcal/ml",
+        totalVolume: "110 ml",
+        dilution: "Standard Dilution: 2 leveled scoops (50g) in 90ml water",
+        tags: ["Fluid Restriction", "Low Protein", "High Cal Density"],
+      },
+    ],
+  };
+}
+
+function resolveCelevidaProduct(product, variantKey) {
+  const variant =
+    product.variants.find((item) => item.key === variantKey) || product.variants[0];
+
+  return {
+    name: product.name,
+    isCelevida: true,
+    type: product.type,
+    manufacturer: product.manufacturer,
+    variantKey: variant.key,
+    variantLabel: variant.label,
+    tags: variant.tags,
+    dilution: variant.dilution,
+    constituents: [
+      { label: "Calories", value: "220 kcal" },
+      { label: "Cal Density", value: variant.calDensity, highlight: true },
+      { label: "Protein", value: "10.5 g" },
+      { label: "Fat", value: "8.0 g" },
+      { label: "CHO", value: "26.0 g" },
+      { label: "Sodium", value: "218 mg" },
+      { label: "Potassium", value: "137 mg" },
+      { label: "Phosphorus", value: "87 mg" },
+      { label: "Total Volume", value: variant.totalVolume },
+    ],
+  };
+}
+
+function findEnteralProductByName(name) {
+  if (!name) {
+    return null;
+  }
+
+  const direct = enteralPreparations.find((product) => product.name === name);
+  if (direct) {
+    return direct;
+  }
+
+  if (/^CELEVIDA EN - /i.test(name)) {
+    return enteralPreparations.find((product) => product.isCelevida) || null;
+  }
+
+  return null;
+}
+
+function resolveProductForUse(product, variantKey = celevidaSelectedVariantKey) {
+  if (product?.isCelevida) {
+    return resolveCelevidaProduct(product, variantKey);
+  }
+
+  return product;
+}
+
+function normalizeCompareProductNames(names) {
+  return names
+    .map((name) => (/^CELEVIDA EN - /i.test(name) ? CELEVIDA_PRODUCT_NAME : name))
+    .filter((name, index, list) => list.indexOf(name) === index);
+}
+
+function syncCelevidaVariantFromLegacyName(name) {
+  const match = name?.match(/^CELEVIDA EN - ([\d.]+)\s*Kcal\/ml/i);
+  if (match) {
+    celevidaSelectedVariantKey = match[1];
+    return CELEVIDA_PRODUCT_NAME;
+  }
+  return name;
+}
+
 const enteralPreparations = [
   createPreparation("ALBUWISE", "Standard", "Nucgnex", ["Low Sodium", "High Protein", "Low Cal Density"], "129 kcal", "0.65 kcal/ml", "18.3 g", "3.0 g", "7.2 g", "137 mg", "116 mg", "29 mg", "200 ml", "Standard Dilution: 3 levelled scoops (30g) in 180ml water"),
-  createPreparation("CELEVIDA EN - 1 Kcal/ml", "Standard", "Nestle-Dr Reddy", ["Low Protein"], "220 kcal", "0.96 kcal/ml", "10.5 g", "8.0 g", "26.0 g", "218 mg", "137 mg", "87 mg", "230 ml", "Standard Dilution: 2 leveled scoops (50g) in 200ml water"),
-  createPreparation("CELEVIDA EN - 1.52 Kcal/ml", "Standard", "Nestle-Dr Reddy", ["Low Protein"], "220 kcal", "1.47 kcal/ml", "10.5 g", "8.0 g", "26.0 g", "218 mg", "137 mg", "87 mg", "150 ml", "Standard Dilution: 2 leveled scoops (50g) in 125ml water"),
-  createPreparation("CELEVIDA EN - 1.69 Kcal/ml", "Standard", "Nestle-Dr Reddy", ["Low Protein", "High Cal Density"], "220 kcal", "1.63 kcal/ml", "10.5 g", "8.0 g", "26.0 g", "218 mg", "137 mg", "87 mg", "135 ml", "Standard Dilution: 2 leveled scoops (50g) in 110ml water"),
-  createPreparation("CELEVIDA EN - 2 Kcal/ml", "Standard", "Nestle-Dr Reddy", ["Fluid Restriction", "Low Protein", "High Cal Density"], "220 kcal", "2.00 kcal/ml", "10.5 g", "8.0 g", "26.0 g", "218 mg", "137 mg", "87 mg", "110 ml", "Standard Dilution: 2 leveled scoops (50g) in 90ml water"),
+  createCelevidaPreparation(),
   createPreparation("CELNUTRA 1.0", "Standard", "Nucgnex", ["Low Sodium", "Low Protein"], "210 kcal", "1.00 kcal/ml", "10.5 g", "7.0 g", "24.3 g", "63 mg", "105 mg", "100 mg", "210 ml", "Standard Dilution: 5 leveled scoops (50g) in 170ml water"),
   createPreparation("CELNUTRA 2.0", "Standard", "Nucgnex", ["Low Sodium", "Fluid Restriction", "High Protein", "High Cal Density"], "245 kcal", "2.23 kcal/ml", "18.0 g", "8.9 g", "23.1 g", "67 mg", "105 mg", "71 mg", "110 ml", "Standard Dilution: 5 levelled scoops (50g) in 70ml water"),
   createPreparation("CELNUTRA DM 1.5", "Standard", "Nucgnex", ["Low Sodium", "Low Protein", "High Cal Density"], "230 kcal", "1.53 kcal/ml", "12.0 g", "10.0 g", "20.5 g", "100 mg", "175 mg", "160 mg", "150 ml", "Standard Dilution: 5 levelled scoops (50g) in 125ml water"),
@@ -131,6 +240,7 @@ const enteralPreparations = [
 
 let selectedFeedProductName = null;
 let selectedCompareProductNames = [];
+let celevidaSelectedVariantKey = "1";
 const productFilterDefinitions = {
   "low-sodium": "Low Sodium",
   "high-sodium": "High Sodium",
@@ -215,10 +325,8 @@ function getSortedPreparations() {
 }
 
 function getSelectedFeedProduct() {
-  return (
-    enteralPreparations.find((product) => product.name === selectedFeedProductName) ||
-    getSortedPreparations()[0]
-  );
+  const product = findEnteralProductByName(selectedFeedProductName) || getSortedPreparations()[0];
+  return resolveProductForUse(product);
 }
 
 function parseConstituentNumber(value) {
@@ -271,6 +379,12 @@ function productMatchesFilter(product, filter) {
 function productMatchesSelectedFilters(product, selectedFilters) {
   if (selectedFilters.length === 0) {
     return true;
+  }
+
+  if (product.isCelevida) {
+    return product.variants.some((variant) =>
+      productMatchesSelectedFilters(resolveCelevidaProduct(product, variant.key), selectedFilters)
+    );
   }
 
   const filterGroups = {
@@ -345,7 +459,21 @@ function getCompareRows() {
 
 function renderComparisonModal() {
   const products = selectedCompareProductNames
-    .map((name) => enteralPreparations.find((product) => product.name === name))
+    .map((name) => {
+      const product = findEnteralProductByName(name);
+      if (!product) {
+        return null;
+      }
+      if (product.isCelevida && name === CELEVIDA_PRODUCT_NAME) {
+        return resolveCelevidaProduct(product, celevidaSelectedVariantKey);
+      }
+      if (product.isCelevida && /^CELEVIDA EN - /i.test(name)) {
+        const legacyMatch = name.match(/([\d.]+)\s*Kcal\/ml/i);
+        const legacyKey = legacyMatch ? legacyMatch[1] : celevidaSelectedVariantKey;
+        return resolveCelevidaProduct(product, legacyKey);
+      }
+      return product;
+    })
     .filter(Boolean);
 
   if (products.length !== 4) {
@@ -370,7 +498,14 @@ function renderComparisonModal() {
       <thead>
         <tr>
           <th scope="col">Parameter</th>
-          ${products.map((product) => `<th scope="col">${product.name}</th>`).join("")}
+          ${products
+            .map((product) => {
+              const columnName = product.variantLabel
+                ? `${product.name} (${product.variantLabel})`
+                : product.name;
+              return `<th scope="col">${columnName}</th>`;
+            })
+            .join("")}
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -421,12 +556,39 @@ function renderConstituentTile(item) {
   `;
 }
 
+function renderCelevidaDensityControl(product) {
+  return `
+    <label class="celevida-density-control">
+      Calorie density
+      <select class="celevida-density-select" aria-label="CELEVIDA EN calorie density">
+        ${product.variants
+          .map(
+            (variant) => `
+              <option value="${variant.key}" ${
+                variant.key === celevidaSelectedVariantKey ? "selected" : ""
+              }>${variant.label}</option>
+            `
+          )
+          .join("")}
+      </select>
+    </label>
+  `;
+}
+
 function renderEnteralPreparations() {
   const mainLabels = ["Calories", "Cal Density", "Protein", "Total Volume"];
   const productsToRender = getFilteredPreparations();
   const visibleProductNames = productsToRender.map((product) => product.name);
-  selectedCompareProductNames = selectedCompareProductNames.filter((name) =>
-    visibleProductNames.includes(name)
+  selectedCompareProductNames = normalizeCompareProductNames(
+    selectedCompareProductNames.filter((name) => {
+      if (name === CELEVIDA_PRODUCT_NAME) {
+        return visibleProductNames.includes(name);
+      }
+      if (/^CELEVIDA EN - /i.test(name)) {
+        return visibleProductNames.includes(CELEVIDA_PRODUCT_NAME);
+      }
+      return visibleProductNames.includes(name);
+    })
   );
   updateProductFilterSummary(productsToRender);
   updateCompareControls();
@@ -444,10 +606,13 @@ function renderEnteralPreparations() {
   productGrid.innerHTML = productsToRender
     .map(
       (product, index) => {
-        const mainConstituents = product.constituents.filter((item) =>
+        const displayProduct = product.isCelevida
+          ? resolveCelevidaProduct(product, celevidaSelectedVariantKey)
+          : product;
+        const mainConstituents = displayProduct.constituents.filter((item) =>
           mainLabels.includes(item.label)
         );
-        const extraConstituents = product.constituents.filter(
+        const extraConstituents = displayProduct.constituents.filter(
           (item) => !mainLabels.includes(item.label)
         );
         const detailsId = `product-details-${index}`;
@@ -462,11 +627,12 @@ function renderEnteralPreparations() {
               <p>${product.type} &bull; ${product.manufacturer}</p>
             </div>
             <div class="product-tags">
-              ${getProductFilterTags(product)
+              ${getProductFilterTags(displayProduct)
                 .map((tag) => `<span class="${getTagClass(tag)}">${tag}</span>`)
                 .join("")}
             </div>
           </div>
+          ${product.isCelevida ? renderCelevidaDensityControl(product) : ""}
           <label class="compare-select">
             <input
               type="checkbox"
@@ -483,7 +649,7 @@ function renderEnteralPreparations() {
             <div class="constituent-grid">
               ${extraConstituents.map(renderConstituentTile).join("")}
             </div>
-            <p class="dilution-note">${product.dilution}</p>
+            <p class="dilution-note">${displayProduct.dilution}</p>
           </div>
           <button
             class="show-more-product"
@@ -501,7 +667,19 @@ function renderEnteralPreparations() {
 }
 
 function updateSelectedFeedProductName() {
-  feedProductName.textContent = selectedFeedProductName || "Select a product tile above";
+  if (!selectedFeedProductName) {
+    feedProductName.textContent = "Select a product tile above";
+    return;
+  }
+
+  const product = findEnteralProductByName(selectedFeedProductName);
+  if (product?.isCelevida) {
+    const resolved = resolveCelevidaProduct(product, celevidaSelectedVariantKey);
+    feedProductName.textContent = `${resolved.name} (${resolved.variantLabel})`;
+    return;
+  }
+
+  feedProductName.textContent = selectedFeedProductName;
 }
 
 function createSummaryTile(label, value, detail = "") {
@@ -644,6 +822,7 @@ function updateFeedConfiguration() {
 
 function resetFeedConfiguration() {
   selectedFeedProductName = null;
+  celevidaSelectedVariantKey = "1";
   feedDilution.value = "1";
   feedHours.value = "18";
   feedRate.value = "20";
@@ -1725,7 +1904,25 @@ dietPrescription.addEventListener("click", (event) => {
   }
 });
 
+productGrid.addEventListener("change", (event) => {
+  const densitySelect = event.target.closest(".celevida-density-select");
+  if (!densitySelect) {
+    return;
+  }
+
+  celevidaSelectedVariantKey = densitySelect.value;
+  renderEnteralPreparations();
+  if (selectedFeedProductName === CELEVIDA_PRODUCT_NAME) {
+    updateSelectedFeedProductName();
+    updateFeedConfiguration();
+  }
+});
+
 productGrid.addEventListener("click", (event) => {
+  if (event.target.closest(".celevida-density-control")) {
+    return;
+  }
+
   const compareCheckbox = event.target.closest(".compare-product-checkbox");
 
   if (compareCheckbox) {
@@ -1769,7 +1966,7 @@ productGrid.addEventListener("click", (event) => {
     return;
   }
 
-  selectedFeedProductName = card.dataset.productName;
+  selectedFeedProductName = syncCelevidaVariantFromLegacyName(card.dataset.productName);
   updateSelectedFeedProductName();
   renderEnteralPreparations();
   updateFeedConfiguration();

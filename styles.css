@@ -853,6 +853,26 @@ input[type="range"] {
   margin: 0;
 }
 
+.celevida-density-control {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  color: #344556;
+  display: grid;
+  font-size: 0.88rem;
+  font-weight: 700;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+}
+
+.celevida-density-control select {
+  font: inherit;
+  font-weight: 600;
+  padding: 6px 8px;
+  width: 100%;
+}
+
 .compare-select {
   align-items: center;
   background: rgba(255, 255, 255, 0.72);
