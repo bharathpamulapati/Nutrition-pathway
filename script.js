@@ -1957,18 +1957,15 @@ productGrid.addEventListener("click", (event) => {
     return;
   }
 
-  activeProductCardName = syncCelevidaVariantFromLegacyName(card.dataset.productName);
-  renderEnteralPreparations();
-});
+  const clickedProductName = syncCelevidaVariantFromLegacyName(card.dataset.productName);
 
-productGrid.addEventListener("dblclick", (event) => {
-  const card = event.target.closest(".product-card");
-  if (!card || !card.dataset.productName) {
+  if (activeProductCardName !== clickedProductName) {
+    activeProductCardName = clickedProductName;
+    renderEnteralPreparations();
     return;
   }
 
-  activeProductCardName = syncCelevidaVariantFromLegacyName(card.dataset.productName);
-  selectedFeedProductName = activeProductCardName;
+  selectedFeedProductName = clickedProductName;
   updateSelectedFeedProductName();
   renderEnteralPreparations();
   updateFeedConfiguration();
