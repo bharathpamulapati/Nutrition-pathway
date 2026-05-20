@@ -97,6 +97,19 @@ function createPreparation(
 }
 
 const CELEVIDA_PRODUCT_NAME = "CELEVIDA EN";
+const CELEVIDA_FEED_CALORIES = 220;
+
+function getCelevidaVariantMetrics(variantKey) {
+  const densityKcalPerMl = Number(variantKey);
+  const volumeMl = Math.round((CELEVIDA_FEED_CALORIES / densityKcalPerMl) * 10) / 10;
+  const calDensity =
+    variantKey === "1" || variantKey === "2"
+      ? `${densityKcalPerMl.toFixed(2)} kcal/ml`
+      : `${variantKey} kcal/ml`;
+  const totalVolume = `${volumeMl} ml`;
+
+  return { calDensity, totalVolume, volumeMl, densityKcalPerMl };
+}
 
 function createCelevidaPreparation() {
   return {
@@ -108,32 +121,24 @@ function createCelevidaPreparation() {
       {
         key: "1",
         label: "1 Kcal/mL",
-        calDensity: "0.96 kcal/ml",
-        totalVolume: "230 ml",
         dilution: "Standard Dilution: 2 leveled scoops (50g) in 200ml water",
         tags: ["Low Protein"],
       },
       {
         key: "1.52",
         label: "1.52 Kcal/mL",
-        calDensity: "1.47 kcal/ml",
-        totalVolume: "150 ml",
         dilution: "Standard Dilution: 2 leveled scoops (50g) in 125ml water",
         tags: ["Low Protein"],
       },
       {
         key: "1.69",
         label: "1.69 Kcal/mL",
-        calDensity: "1.63 kcal/ml",
-        totalVolume: "135 ml",
         dilution: "Standard Dilution: 2 leveled scoops (50g) in 110ml water",
         tags: ["Low Protein", "High Cal Density"],
       },
       {
         key: "2",
         label: "2 Kcal/mL",
-        calDensity: "2.00 kcal/ml",
-        totalVolume: "110 ml",
         dilution: "Standard Dilution: 2 leveled scoops (50g) in 90ml water",
         tags: ["Fluid Restriction", "Low Protein", "High Cal Density"],
       },
@@ -144,6 +149,7 @@ function createCelevidaPreparation() {
 function resolveCelevidaProduct(product, variantKey) {
   const variant =
     product.variants.find((item) => item.key === variantKey) || product.variants[0];
+  const { calDensity, totalVolume } = getCelevidaVariantMetrics(variant.key);
 
   return {
     name: product.name,
@@ -156,14 +162,14 @@ function resolveCelevidaProduct(product, variantKey) {
     dilution: variant.dilution,
     constituents: [
       { label: "Calories", value: "220 kcal" },
-      { label: "Cal Density", value: variant.calDensity, highlight: true },
+      { label: "Cal Density", value: calDensity, highlight: true },
       { label: "Protein", value: "10.5 g" },
       { label: "Fat", value: "8.0 g" },
       { label: "CHO", value: "26.0 g" },
       { label: "Sodium", value: "218 mg" },
       { label: "Potassium", value: "137 mg" },
       { label: "Phosphorus", value: "87 mg" },
-      { label: "Total Volume", value: variant.totalVolume },
+      { label: "Total Volume", value: totalVolume },
     ],
   };
 }
