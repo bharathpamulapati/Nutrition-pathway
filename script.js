@@ -250,6 +250,7 @@ const enteralPreparations = [
 let selectedFeedProductName = null;
 let selectedCompareProductNames = [];
 let celevidaSelectedVariantKey = "1";
+let activeProductCardName = null;
 const productFilterDefinitions = {
   "low-sodium": "Low Sodium",
   "high-sodium": "High Sodium",
@@ -618,6 +619,7 @@ function renderEnteralPreparations() {
         const displayProduct = product.isCelevida
           ? resolveCelevidaProduct(product, celevidaSelectedVariantKey)
           : product;
+        const isActiveCard = activeProductCardName === product.name;
         const mainConstituents = displayProduct.constituents.filter((item) =>
           mainLabels.includes(item.label)
         );
@@ -628,46 +630,40 @@ function renderEnteralPreparations() {
 
         return `
         <article class="product-card ${
-          product.name === selectedFeedProductName ? "selected-product" : ""
+          isActiveCard ? "selected-product" : "product-card-compact"
         }" data-product-name="${product.name}" data-expanded="false">
           <div class="product-card-header">
             <div>
               <h3>${product.name}</h3>
-              <p>${product.type} &bull; ${product.manufacturer}</p>
+              <p>${product.manufacturer}</p>
             </div>
+          </div>
+          <div class="product-selected-details ${isActiveCard ? "" : "hidden"}">
             <div class="product-tags">
               ${getProductFilterTags(displayProduct)
                 .map((tag) => `<span class="${getTagClass(tag)}">${tag}</span>`)
                 .join("")}
             </div>
-          </div>
-          ${product.isCelevida ? renderCelevidaDensityControl(product) : ""}
-          <label class="compare-select">
-            <input
-              type="checkbox"
-              class="compare-product-checkbox"
-              value="${product.name}"
-              ${selectedCompareProductNames.includes(product.name) ? "checked" : ""}
-            />
-            Compare this preparation
-          </label>
-          <div class="constituent-grid">
-            ${mainConstituents.map(renderConstituentTile).join("")}
-          </div>
-          <p class="dilution-note">${displayProduct.dilution}</p>
-          <div id="${detailsId}" class="product-extra-details hidden">
+            ${product.isCelevida ? renderCelevidaDensityControl(product) : ""}
+            <label class="compare-select">
+              <input
+                type="checkbox"
+                class="compare-product-checkbox"
+                value="${product.name}"
+                ${selectedCompareProductNames.includes(product.name) ? "checked" : ""}
+              />
+              Compare this preparation
+            </label>
             <div class="constituent-grid">
-              ${extraConstituents.map(renderConstituentTile).join("")}
+              ${mainConstituents.map(renderConstituentTile).join("")}
+            </div>
+            <p class="dilution-note">${displayProduct.dilution}</p>
+            <div id="${detailsId}" class="product-extra-details">
+              <div class="constituent-grid">
+                ${extraConstituents.map(renderConstituentTile).join("")}
+              </div>
             </div>
           </div>
-          <button
-            class="show-more-product"
-            type="button"
-            aria-expanded="false"
-            aria-controls="${detailsId}"
-          >
-            Show more
-          </button>
         </article>
       `;
       }
@@ -1955,27 +1951,24 @@ productGrid.addEventListener("click", (event) => {
     return;
   }
 
-  const showMoreButton = event.target.closest(".show-more-product");
-
-  if (showMoreButton) {
-    const card = showMoreButton.closest(".product-card");
-    const details = document.getElementById(showMoreButton.getAttribute("aria-controls"));
-    const isExpanded = showMoreButton.getAttribute("aria-expanded") === "true";
-
-    details.classList.toggle("hidden", isExpanded);
-    showMoreButton.setAttribute("aria-expanded", String(!isExpanded));
-    showMoreButton.textContent = isExpanded ? "Show more" : "Show less";
-    card.dataset.expanded = String(!isExpanded);
-    return;
-  }
-
   const card = event.target.closest(".product-card");
 
   if (!card || !card.dataset.productName) {
     return;
   }
 
-  selectedFeedProductName = syncCelevidaVariantFromLegacyName(card.dataset.productName);
+  activeProductCardName = syncCelevidaVariantFromLegacyName(card.dataset.productName);
+  renderEnteralPreparations();
+});
+
+productGrid.addEventListener("dblclick", (event) => {
+  const card = event.target.closest(".product-card");
+  if (!card || !card.dataset.productName) {
+    return;
+  }
+
+  activeProductCardName = syncCelevidaVariantFromLegacyName(card.dataset.productName);
+  selectedFeedProductName = activeProductCardName;
   updateSelectedFeedProductName();
   renderEnteralPreparations();
   updateFeedConfiguration();

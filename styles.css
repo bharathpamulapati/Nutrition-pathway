@@ -834,12 +834,16 @@ input[type="range"] {
   padding: clamp(18px, 3vw, 24px);
 }
 
+.product-card-compact {
+  padding: 14px 16px;
+}
+
 .product-card-header {
   align-items: start;
   display: flex;
   gap: 16px;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .product-card h3 {
@@ -851,6 +855,10 @@ input[type="range"] {
   color: #4f5965;
   font-style: italic;
   margin: 0;
+}
+
+.product-selected-details {
+  margin-top: 14px;
 }
 
 .celevida-density-control {
