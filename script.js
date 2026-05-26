@@ -42,6 +42,7 @@ const prepLibraryToggle = document.getElementById("prep-library-toggle");
 const prepLibraryContent = document.getElementById("prep-library-content");
 const productFilterSummary = document.getElementById("product-filter-summary");
 const productGrid = document.getElementById("product-grid");
+const productDetailPanel = document.getElementById("product-detail-panel");
 const compareSelectionCount = document.getElementById("compare-selection-count");
 const compareProducts = document.getElementById("compare-products");
 const compareModal = document.getElementById("compare-modal");
@@ -592,8 +593,91 @@ function renderCelevidaDensityControl(product) {
   `;
 }
 
-function renderEnteralPreparations() {
+function renderProductDetailContent(product, displayProduct, detailsId) {
   const mainLabels = ["Calories", "Cal Density", "Protein", "Total Volume"];
+  const mainConstituents = displayProduct.constituents.filter((item) =>
+    mainLabels.includes(item.label)
+  );
+  const extraConstituents = displayProduct.constituents.filter(
+    (item) => !mainLabels.includes(item.label)
+  );
+
+  return `
+    <p class="product-detail-hint">Click this panel to configure feeds for this preparation.</p>
+    <div class="product-card-header">
+      <div>
+        <h3>${product.name}</h3>
+        <p>${product.type} &bull; ${product.manufacturer}</p>
+      </div>
+      <div class="product-tags">
+        ${getProductFilterTags(displayProduct)
+          .map((tag) => `<span class="${getTagClass(tag)}">${tag}</span>`)
+          .join("")}
+      </div>
+    </div>
+    ${product.isCelevida ? renderCelevidaDensityControl(product) : ""}
+    <label class="compare-select">
+      <input
+        type="checkbox"
+        class="compare-product-checkbox"
+        value="${product.name}"
+        ${selectedCompareProductNames.includes(product.name) ? "checked" : ""}
+      />
+      Compare this preparation
+    </label>
+    <div class="constituent-grid">
+      ${mainConstituents.map(renderConstituentTile).join("")}
+    </div>
+    <p class="dilution-note">${displayProduct.dilution}</p>
+    <div id="${detailsId}" class="product-extra-details">
+      <div class="constituent-grid">
+        ${extraConstituents.map(renderConstituentTile).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderProductDetailPanel(productsToRender) {
+  if (!productDetailPanel) {
+    return;
+  }
+
+  if (
+    activeProductCardName &&
+    !productsToRender.some((product) => product.name === activeProductCardName)
+  ) {
+    activeProductCardName = null;
+  }
+
+  if (!activeProductCardName) {
+    productDetailPanel.classList.add("hidden");
+    productDetailPanel.innerHTML = "";
+    productDetailPanel.dataset.productName = "";
+    return;
+  }
+
+  const product = productsToRender.find((item) => item.name === activeProductCardName);
+  if (!product) {
+    productDetailPanel.classList.add("hidden");
+    productDetailPanel.innerHTML = "";
+    productDetailPanel.dataset.productName = "";
+    return;
+  }
+
+  const displayProduct = product.isCelevida
+    ? resolveCelevidaProduct(product, celevidaSelectedVariantKey)
+    : product;
+
+  productDetailPanel.classList.remove("hidden");
+  productDetailPanel.dataset.productName = product.name;
+  productDetailPanel.innerHTML = `
+    <article class="product-detail-card selected-product">
+      ${renderProductDetailContent(product, displayProduct, "product-detail-extra")}
+    </article>
+  `;
+}
+
+function renderEnteralPreparations() {
   const productsToRender = getFilteredPreparations();
   const visibleProductNames = productsToRender.map((product) => product.name);
   selectedCompareProductNames = normalizeCompareProductNames(
@@ -617,65 +701,44 @@ function renderEnteralPreparations() {
         <p>Change or clear filters to view commercial enteral nutrition preparations.</p>
       </article>
     `;
+    renderProductDetailPanel(productsToRender);
     return;
   }
 
   productGrid.innerHTML = productsToRender
-    .map(
-      (product, index) => {
-        const displayProduct = product.isCelevida
-          ? resolveCelevidaProduct(product, celevidaSelectedVariantKey)
-          : product;
-        const isActiveCard = activeProductCardName === product.name;
-        const mainConstituents = displayProduct.constituents.filter((item) =>
-          mainLabels.includes(item.label)
-        );
-        const extraConstituents = displayProduct.constituents.filter(
-          (item) => !mainLabels.includes(item.label)
-        );
-        const detailsId = `product-details-${index}`;
+    .map((product) => {
+      const isActiveNameTile = activeProductCardName === product.name;
 
-        return `
-        <article class="product-card ${
-          isActiveCard ? "selected-product" : "product-card-compact"
-        }" data-product-name="${product.name}" data-expanded="false">
-          <div class="product-card-header">
+      return `
+        <article
+          class="product-card product-card-compact ${
+            isActiveNameTile ? "product-name-tile-active" : ""
+          }"
+          data-product-name="${product.name}"
+        >
+          <div class="product-card-header product-name-tile">
             <div>
               <h3>${product.name}</h3>
               <p>${product.manufacturer}</p>
             </div>
           </div>
-          <div class="product-selected-details ${isActiveCard ? "" : "hidden"}">
-            <div class="product-tags">
-              ${getProductFilterTags(displayProduct)
-                .map((tag) => `<span class="${getTagClass(tag)}">${tag}</span>`)
-                .join("")}
-            </div>
-            ${product.isCelevida ? renderCelevidaDensityControl(product) : ""}
-            <label class="compare-select">
-              <input
-                type="checkbox"
-                class="compare-product-checkbox"
-                value="${product.name}"
-                ${selectedCompareProductNames.includes(product.name) ? "checked" : ""}
-              />
-              Compare this preparation
-            </label>
-            <div class="constituent-grid">
-              ${mainConstituents.map(renderConstituentTile).join("")}
-            </div>
-            <p class="dilution-note">${displayProduct.dilution}</p>
-            <div id="${detailsId}" class="product-extra-details">
-              <div class="constituent-grid">
-                ${extraConstituents.map(renderConstituentTile).join("")}
-              </div>
-            </div>
-          </div>
         </article>
       `;
-      }
-    )
+    })
     .join("");
+
+  renderProductDetailPanel(productsToRender);
+}
+
+function openFeedConfigurationForProduct(productName) {
+  const normalizedName = syncCelevidaVariantFromLegacyName(productName);
+  activeProductCardName = normalizedName;
+  selectedFeedProductName = normalizedName;
+  updateSelectedFeedProductName();
+  renderEnteralPreparations();
+  updateFeedConfiguration();
+  feedConfigurator.classList.remove("hidden");
+  feedConfigurator.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function updateSelectedFeedProductName() {
@@ -834,6 +897,7 @@ function updateFeedConfiguration() {
 
 function resetFeedConfiguration() {
   selectedFeedProductName = null;
+  activeProductCardName = null;
   celevidaSelectedVariantKey = "1";
   feedDilution.value = "1";
   feedHours.value = "18";
@@ -1916,7 +1980,7 @@ dietPrescription.addEventListener("click", (event) => {
   }
 });
 
-productGrid.addEventListener("change", (event) => {
+function handleCelevidaDensityChange(event) {
   const densitySelect = event.target.closest(".celevida-density-select");
   if (!densitySelect) {
     return;
@@ -1928,57 +1992,63 @@ productGrid.addEventListener("change", (event) => {
     updateSelectedFeedProductName();
     updateFeedConfiguration();
   }
-});
+}
+
+function handleCompareCheckboxClick(compareCheckbox) {
+  const productName = compareCheckbox.value;
+
+  if (compareCheckbox.checked) {
+    if (selectedCompareProductNames.length >= 4) {
+      compareCheckbox.checked = false;
+    } else {
+      selectedCompareProductNames.push(productName);
+    }
+  } else {
+    selectedCompareProductNames = selectedCompareProductNames.filter((name) => name !== productName);
+  }
+
+  updateCompareControls();
+}
+
+productGrid.addEventListener("change", handleCelevidaDensityChange);
+if (productDetailPanel) {
+  productDetailPanel.addEventListener("change", handleCelevidaDensityChange);
+}
 
 productGrid.addEventListener("click", (event) => {
-  if (event.target.closest(".celevida-density-control")) {
+  const compactTile = event.target.closest(".product-card-compact");
+  if (!compactTile?.dataset.productName) {
     return;
   }
 
-  const compareCheckbox = event.target.closest(".compare-product-checkbox");
+  activeProductCardName = syncCelevidaVariantFromLegacyName(compactTile.dataset.productName);
+  renderEnteralPreparations();
+  productDetailPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
-  if (compareCheckbox) {
-    const productName = compareCheckbox.value;
-
-    if (compareCheckbox.checked) {
-      if (selectedCompareProductNames.length >= 4) {
-        compareCheckbox.checked = false;
-      } else {
-        selectedCompareProductNames.push(productName);
-      }
-    } else {
-      selectedCompareProductNames = selectedCompareProductNames.filter((name) => name !== productName);
+if (productDetailPanel) {
+  productDetailPanel.addEventListener("click", (event) => {
+    if (event.target.closest(".celevida-density-control")) {
+      return;
     }
 
-    updateCompareControls();
-    return;
-  }
+    const compareCheckbox = event.target.closest(".compare-product-checkbox");
+    if (compareCheckbox) {
+      handleCompareCheckboxClick(compareCheckbox);
+      return;
+    }
 
-  if (event.target.closest(".compare-select")) {
-    return;
-  }
+    if (event.target.closest(".compare-select")) {
+      return;
+    }
 
-  const card = event.target.closest(".product-card");
+    if (!productDetailPanel.dataset.productName) {
+      return;
+    }
 
-  if (!card || !card.dataset.productName) {
-    return;
-  }
-
-  const clickedProductName = syncCelevidaVariantFromLegacyName(card.dataset.productName);
-
-  if (activeProductCardName !== clickedProductName) {
-    activeProductCardName = clickedProductName;
-    renderEnteralPreparations();
-    return;
-  }
-
-  selectedFeedProductName = clickedProductName;
-  updateSelectedFeedProductName();
-  renderEnteralPreparations();
-  updateFeedConfiguration();
-  feedConfigurator.classList.remove("hidden");
-  feedConfigurator.scrollIntoView({ behavior: "smooth", block: "start" });
-});
+    openFeedConfigurationForProduct(productDetailPanel.dataset.productName);
+  });
+}
 
 updateSelectedFeedProductName();
 renderEnteralPreparations();
