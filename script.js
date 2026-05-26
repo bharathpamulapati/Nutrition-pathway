@@ -386,17 +386,7 @@ function productMatchesFilter(product, filter) {
   return getProductFilterTags(product).includes(productFilterDefinitions[filter]);
 }
 
-function productMatchesSelectedFilters(product, selectedFilters) {
-  if (selectedFilters.length === 0) {
-    return true;
-  }
-
-  if (product.isCelevida) {
-    return product.variants.some((variant) =>
-      productMatchesSelectedFilters(resolveCelevidaProduct(product, variant.key), selectedFilters)
-    );
-  }
-
+function productMatchesCompositionFilters(product, selectedFilters) {
   const filterGroups = {
     sodium: ["low-sodium", "high-sodium"],
     calorieDensity: ["low-cal-density", "high-cal-density"],
@@ -413,6 +403,23 @@ function productMatchesSelectedFilters(product, selectedFilters) {
 
     return activeGroupFilters.some((filter) => productMatchesFilter(product, filter));
   });
+}
+
+function productMatchesSelectedFilters(product, selectedFilters) {
+  if (selectedFilters.length === 0) {
+    return true;
+  }
+
+  if (product.isCelevida && product.variants) {
+    return product.variants.some((variant) =>
+      productMatchesCompositionFilters(
+        resolveCelevidaProduct(product, variant.key),
+        selectedFilters
+      )
+    );
+  }
+
+  return productMatchesCompositionFilters(product, selectedFilters);
 }
 
 function getFilteredPreparations() {
