@@ -271,6 +271,7 @@ const pathwayState = {
   enteralPhase: null,
   enteralPlan: null,
   feedConfig: null,
+  proteinSupplementSelection: null,
   dietPrescription: null,
   dietPrescriptionText: null,
 };
@@ -910,6 +911,7 @@ function resetFeedConfiguration() {
   feedConfigurator.classList.add("hidden");
   pathwayState.dietPrescription = null;
   pathwayState.dietPrescriptionText = null;
+  pathwayState.proteinSupplementSelection = null;
   updateSelectedFeedProductName();
   renderEnteralPreparations();
   updateFeedConfiguration();
@@ -939,6 +941,377 @@ function getPrescriptionPatientData() {
   };
 }
 
+function getPrescriptionProductOptions() {
+  const options = [];
+
+  getSortedPreparations().forEach((product) => {
+    if (product.isCelevida) {
+      product.variants.forEach((variant) => {
+        options.push({
+          value: `${CELEVIDA_PRODUCT_NAME}|${variant.key}`,
+          label: `${CELEVIDA_PRODUCT_NAME} (${variant.label})`,
+        });
+      });
+      return;
+    }
+
+    options.push({
+      value: product.name,
+      label: product.name,
+    });
+  });
+
+  return options;
+}
+
+function resolveSupplementProductFromKey(productKey) {
+  if (!productKey) {
+    return null;
+  }
+
+  if (productKey.includes("|")) {
+    const [name, variantKey] = productKey.split("|");
+    const product = findEnteralProductByName(name);
+    return product?.isCelevida ? resolveCelevidaProduct(product, variantKey) : null;
+  }
+
+  const product = findEnteralProductByName(productKey);
+  return product ? resolveProductForUse(product) : null;
+}
+
+function getSupplementProductDisplayName(product) {
+  if (!product) {
+    return "";
+  }
+
+  if (product.isCelevida && product.variantLabel) {
+    return `${product.name} (${product.variantLabel})`;
+  }
+
+  return product.name;
+}
+
+function renderSupplementConstituentPanel(product) {
+  if (!product) {
+    return "";
+  }
+
+  return `
+    <div class="supplement-constituent-panel">
+      <h5>Selected supplement constituents</h5>
+      <div class="constituent-grid supplement-constituent-grid">
+        ${product.constituents
+          .map((item) =>
+            renderConstituentTile({
+              ...item,
+              highlight: item.label === "Protein" || item.highlight,
+            })
+          )
+          .join("")}
+      </div>
+      <p class="dilution-note"><strong>Manufacturer standard dilution:</strong> ${product.dilution}</p>
+    </div>
+  `;
+}
+
+function calculateProteinSupplementDelivery(product, proteinGap, deliveryMode, primaryFeedName) {
+  const baseProtein = getConstituentNumber(product, "Protein");
+  const baseCalories = getConstituentNumber(product, "Calories");
+  const baseVolume = getConstituentNumber(product, "Total Volume");
+
+  if (!product || baseProtein <= 0 || proteinGap <= 0 || !deliveryMode) {
+    return null;
+  }
+
+  const servingsPerDay = Math.ceil(proteinGap / baseProtein);
+  const supplementalProtein = servingsPerDay * baseProtein;
+  const supplementalCalories = servingsPerDay * baseCalories;
+  const supplementalVolume = servingsPerDay * baseVolume;
+  const productLabel = getSupplementProductDisplayName(product);
+
+  let administrationNote;
+  if (deliveryMode === "separate") {
+    administrationNote = `Give ${servingsPerDay} separate preparation(s) per day using manufacturer recommended standard dilution (${product.dilution}). Total supplement volume: ${Math.round(supplementalVolume)} mL/day.`;
+  } else {
+    administrationNote = `Add supplement powder equivalent to ${servingsPerDay} standard preparation(s) per day (${formatNumber(supplementalProtein)} g protein) into the ongoing ${primaryFeedName} feed. Mix thoroughly before each administration.`;
+  }
+
+  return {
+    product,
+    productLabel,
+    deliveryMode,
+    proteinGap,
+    servingsPerDay,
+    supplementalProtein,
+    supplementalCalories,
+    supplementalVolume,
+    administrationNote,
+    deliveryModeLabel:
+      deliveryMode === "separate"
+        ? "Separate feed at manufacturer standard dilution"
+        : "Powder added to ongoing primary feed",
+  };
+}
+
+function getProteinSupplementState(extraProteinMax, feedConfig) {
+  const hasDeficit = extraProteinMax > 0;
+
+  if (!hasDeficit) {
+    pathwayState.proteinSupplementSelection = null;
+    return { hasDeficit: false, selection: null, delivery: null, isComplete: false };
+  }
+
+  if (!pathwayState.proteinSupplementSelection) {
+    pathwayState.proteinSupplementSelection = { productKey: "", deliveryMode: "" };
+  }
+
+  const selection = pathwayState.proteinSupplementSelection;
+  const product = resolveSupplementProductFromKey(selection.productKey);
+  const delivery =
+    product && selection.deliveryMode
+      ? calculateProteinSupplementDelivery(
+          product,
+          extraProteinMax,
+          selection.deliveryMode,
+          feedConfig.selectedProduct.name
+        )
+      : null;
+
+  return {
+    hasDeficit: true,
+    selection,
+    product,
+    delivery,
+    isComplete: Boolean(delivery),
+  };
+}
+
+function renderProteinSupplementConfigurator(supplementState, extraProteinMin, extraProteinMax) {
+  if (!supplementState.hasDeficit) {
+    return {
+      html: "",
+      extraSupplementationText: "No extra protein supplementation needed",
+    };
+  }
+
+  const { selection, product, delivery, isComplete } = supplementState;
+  const productOptions = getPrescriptionProductOptions();
+  const deficitText = formatRange(extraProteinMin, extraProteinMax, "g protein per day");
+
+  const configuratorHtml = `
+    <section class="protein-supplement-config" aria-labelledby="protein-supplement-title">
+      <h4 id="protein-supplement-title">Protein deficit supplementation</h4>
+      <p class="summary">Estimated protein deficit: <strong>${deficitText}</strong>. Select a commercial preparation and how it should be given.</p>
+      <label class="supplement-select-label">
+        Extra protein supplement formula
+        <select id="protein-supplement-select">
+          <option value="">Select a formula</option>
+          ${productOptions
+            .map(
+              (option) => `
+                <option value="${option.value}" ${
+                  selection.productKey === option.value ? "selected" : ""
+                }>${option.label}</option>
+              `
+            )
+            .join("")}
+        </select>
+      </label>
+      ${product ? renderSupplementConstituentPanel(product) : ""}
+      ${
+        product
+          ? `
+            <fieldset class="supplement-mode-fieldset">
+              <legend>Administration method</legend>
+              <label class="supplement-mode-option">
+                <input
+                  type="radio"
+                  name="protein-supplement-mode"
+                  value="separate"
+                  ${selection.deliveryMode === "separate" ? "checked" : ""}
+                />
+                Give separately using manufacturer recommended standard dilution
+              </label>
+              <label class="supplement-mode-option">
+                <input
+                  type="radio"
+                  name="protein-supplement-mode"
+                  value="powder"
+                  ${selection.deliveryMode === "powder" ? "checked" : ""}
+                />
+                Add supplement powder to the ongoing primary feed
+              </label>
+            </fieldset>
+          `
+          : ""
+      }
+      ${
+        isComplete
+          ? `
+            <div class="supplement-plan-summary">
+              <p><strong>Supplement plan:</strong> ${delivery.administrationNote}</p>
+            </div>
+          `
+          : `<p class="summary supplement-pending">Select a formula and administration method to finalize combined delivery totals.</p>`
+      }
+    </section>
+  `;
+
+  const extraSupplementationText = isComplete
+    ? `${delivery.productLabel} — ${delivery.deliveryModeLabel}; ${formatNumber(delivery.supplementalProtein)} g protein/day`
+    : `Protein deficit ${deficitText} — select supplement formula and administration method below`;
+
+  return { html: configuratorHtml, extraSupplementationText, delivery };
+}
+
+function renderDualFormulaDeliverySummary(feedConfig, supplementState) {
+  if (!supplementState.isComplete) {
+    return "";
+  }
+
+  const { delivery } = supplementState;
+  const primaryName = feedConfig.selectedProduct.name;
+  const primaryCalories = Math.round(feedConfig.deliveredCalories);
+  const primaryProtein = formatNumber(feedConfig.deliveredProtein);
+  const combinedCalories = Math.round(feedConfig.deliveredCalories + delivery.supplementalCalories);
+  const combinedProtein = formatNumber(feedConfig.deliveredProtein + delivery.supplementalProtein);
+
+  return `
+    <section class="dual-formula-summary" aria-labelledby="dual-formula-title">
+      <h4 id="dual-formula-title">Delivery from two enteral preparation formulas</h4>
+      <div class="dual-formula-grid">
+        <article class="dual-formula-card">
+          <h5>Formula 1 — Primary feed</h5>
+          <p><span>Product</span><strong>${primaryName}</strong></p>
+          <p><span>Calories delivered</span><strong>${primaryCalories} kcal/day</strong></p>
+          <p><span>Protein delivered</span><strong>${primaryProtein} g/day</strong></p>
+          <p><span>Dilution in use</span><strong>${feedConfig.dilutionLabel}</strong></p>
+          <p><span>Rate</span><strong>${feedConfig.rate} mL/hour</strong></p>
+        </article>
+        <article class="dual-formula-card supplement-card">
+          <h5>Formula 2 — Protein supplement</h5>
+          <p><span>Product</span><strong>${delivery.productLabel}</strong></p>
+          <p><span>Calories delivered</span><strong>${Math.round(delivery.supplementalCalories)} kcal/day</strong></p>
+          <p><span>Protein delivered</span><strong>${formatNumber(delivery.supplementalProtein)} g/day</strong></p>
+          <p><span>Method</span><strong>${delivery.deliveryModeLabel}</strong></p>
+          <p><span>Preparations/day</span><strong>${delivery.servingsPerDay}</strong></p>
+        </article>
+      </div>
+      <div class="combined-delivery-totals">
+        <p><span>Combined calories delivered (both formulas)</span><strong>${combinedCalories} kcal/day</strong></p>
+        <p><span>Combined protein delivered (both formulas)</span><strong>${combinedProtein} g/day</strong></p>
+      </div>
+      <div class="supplement-nurse-note">
+        <p><strong>Supplement instructions:</strong> ${delivery.administrationNote}</p>
+      </div>
+    </section>
+  `;
+}
+
+function buildPrescriptionPlainText({
+  patient,
+  feedConfig,
+  calorieMin,
+  calorieMax,
+  proteinMin,
+  proteinMax,
+  proteinCaloriesMin,
+  proteinCaloriesMax,
+  totalCaloriesRequiredMin,
+  totalCaloriesRequiredMax,
+  dayThreeTargetMin,
+  dayThreeTargetMax,
+  extraSupplementation,
+  supplementState,
+  deliveredCaloriesText,
+  deliveredProteinText,
+  totalVolumeText,
+}) {
+  let text = `Enteral Nutrition Prescription:
+
+Measured height: ${formatNumber(patient.heightCm)} cm
+Estimated IBW: ${formatNumber(patient.idealBodyWeight)} Kg
+Predicted body weight: ${formatNumber(patient.predictedBodyWeight)} Kg
+Calorie requirement: ${formatRange(calorieMin, calorieMax, "KCal per day")}
+Recommended protein intake: ${formatRange(proteinMin, proteinMax, "grams per day")}
+Calories from protein: ${formatRange(proteinCaloriesMin, proteinCaloriesMax, "KCal per day")}
+Total calories required: ${formatRange(totalCaloriesRequiredMin, totalCaloriesRequiredMax, "KCal per day")}
+70% target by day 3: ${formatRange(dayThreeTargetMin, dayThreeTargetMax, "KCal per day")}
+
+Enteral formula selected: ${feedConfig.selectedProduct.name}
+Manufacturer recommended standard dilution: ${feedConfig.selectedProduct.dilution}
+
+Instructions to Nurse:
+
+Dilution: ${feedConfig.dilutionLabel}
+
+Rate of administration: ${feedConfig.rate} mL per hour
+
+Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours
+
+Shake feed in bag hourly
+
+Total calories delivered: ${deliveredCaloriesText}
+Total protein delivered: ${deliveredProteinText}
+Any extra supplementation needed: ${extraSupplementation}
+Total volume from enteral feed per day: ${totalVolumeText}`;
+
+  if (supplementState.isComplete) {
+    const { delivery } = supplementState;
+    text += `
+
+Protein supplement formula: ${delivery.productLabel}
+Supplement administration: ${delivery.deliveryModeLabel}
+Supplement protein delivered: ${formatNumber(delivery.supplementalProtein)} gm per day
+Supplement calories delivered: ${Math.round(delivery.supplementalCalories)} KCal per day
+Supplement instructions: ${delivery.administrationNote}
+Primary formula calories: ${Math.round(feedConfig.deliveredCalories)} KCal per day
+Primary formula protein: ${formatNumber(feedConfig.deliveredProtein)} gm per day`;
+  }
+
+  text += `
+
+Standard precautions to be followed while preparing feeds:
+
+* All personal protective equipment like cap & mask have to be donned.
+* Wash hands with soap for about 40-60 seconds.
+* Use sterile plastic apron and hand care gloves while preparing the feed.
+* Prepare feed as per prescription.
+* After mixing thoroughly put the preparation into feeding bag.
+* Confirm position of Ryles tube/Freka tube with hissing sound in epigastric area before starting feeds (If any doubt - inform the consultant/Trainee immediately).
+* Start feed at prescribed rate only.
+* Whenever a patient is in Nil per Oral, please confirm with ICU consultant about need for starting IV fluids.
+* Measure Gastric residual volume once each morning before starting feeds at about 6AM with a syringe. Anything above 100 mL has to be brought to the notice of ICU consultant/Trainee on duty immediately
+* Monitor GRBS as advised in daily notes, and inform ICU Consultant if GRBS > 180 mg/dL.
+* Any change in dilutions or rate of administration has to be brought to the notice of ICU consultant/Trainee.`;
+
+  return text;
+}
+
+function handlePrescriptionSupplementInteraction(event) {
+  const select = event.target.closest("#protein-supplement-select");
+  const modeInput = event.target.closest('input[name="protein-supplement-mode"]');
+
+  if (!select && !modeInput) {
+    return;
+  }
+
+  if (!pathwayState.proteinSupplementSelection) {
+    pathwayState.proteinSupplementSelection = { productKey: "", deliveryMode: "" };
+  }
+
+  if (select) {
+    pathwayState.proteinSupplementSelection.productKey = select.value;
+    pathwayState.proteinSupplementSelection.deliveryMode = "";
+  }
+
+  if (modeInput) {
+    pathwayState.proteinSupplementSelection.deliveryMode = modeInput.value;
+  }
+
+  renderDietPrescription(false);
+}
+
 function renderDietPrescription(shouldScroll = true) {
   const patient = getPrescriptionPatientData();
   const feedConfig = pathwayState.feedConfig || getFeedConfigurationData();
@@ -964,14 +1337,22 @@ function renderDietPrescription(shouldScroll = true) {
   const dayThreeTargetMax = totalCaloriesRequiredMax * 0.7;
   const extraProteinMin = Math.max(proteinMin - feedConfig.deliveredProtein, 0);
   const extraProteinMax = Math.max(proteinMax - feedConfig.deliveredProtein, 0);
-  const extraSupplementation =
-    extraProteinMax > 0
-      ? `${formatRange(
-          extraProteinMin,
-          extraProteinMax,
-          "gm protein per day"
-        )}`
-      : "No extra protein supplementation needed";
+  const supplementState = getProteinSupplementState(extraProteinMax, feedConfig);
+  const supplementConfigurator = renderProteinSupplementConfigurator(
+    supplementState,
+    extraProteinMin,
+    extraProteinMax
+  );
+  const extraSupplementation = supplementConfigurator.extraSupplementationText;
+  const deliveredCaloriesText = supplementState.isComplete
+    ? `${Math.round(feedConfig.deliveredCalories + supplementState.delivery.supplementalCalories)} KCal per day (combined from both formulas)`
+    : `${Math.round(feedConfig.deliveredCalories)} KCal per day`;
+  const deliveredProteinText = supplementState.isComplete
+    ? `${formatNumber(feedConfig.deliveredProtein + supplementState.delivery.supplementalProtein)} gm per day (combined from both formulas)`
+    : `${formatNumber(feedConfig.deliveredProtein)} gm per day`;
+  const totalVolumeText = supplementState.isComplete && supplementState.delivery.deliveryMode === "separate"
+    ? `${feedConfig.totalVolumePerDay} mL primary feed + ${Math.round(supplementState.delivery.supplementalVolume)} mL supplement`
+    : `${feedConfig.totalVolumePerDay} mL`;
 
   pathwayState.dietPrescription = {
     patient,
@@ -984,50 +1365,28 @@ function renderDietPrescription(shouldScroll = true) {
     totalCaloriesRequiredMax,
     extraProteinMin,
     extraProteinMax,
+    supplementState,
   };
 
-  pathwayState.dietPrescriptionText = `Enteral Nutrition Prescription:
-
-Measured height: ${formatNumber(patient.heightCm)} cm
-Estimated IBW: ${formatNumber(patient.idealBodyWeight)} Kg
-Predicted body weight: ${formatNumber(patient.predictedBodyWeight)} Kg
-Calorie requirement: ${formatRange(calorieMin, calorieMax, "KCal per day")}
-Recommended protein intake: ${formatRange(proteinMin, proteinMax, "grams per day")}
-Calories from protein: ${formatRange(proteinCaloriesMin, proteinCaloriesMax, "KCal per day")}
-Total calories required: ${formatRange(totalCaloriesRequiredMin, totalCaloriesRequiredMax, "KCal per day")}
-70% target by day 3: ${formatRange(dayThreeTargetMin, dayThreeTargetMax, "KCal per day")}
-
-Enteral formula selected: ${feedConfig.selectedProduct.name}
-Manufacturer recommended standard dilution: ${feedConfig.selectedProduct.dilution}
-
-Instructions to Nurse:
-
-Dilution: ${feedConfig.dilutionLabel}
-
-Rate of administration: ${feedConfig.rate} mL per hour
-
-Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours
-
-Shake feed in bag hourly
-
-Total calories delivered: ${Math.round(feedConfig.deliveredCalories)} KCal per day
-Total protein delivered: ${formatNumber(feedConfig.deliveredProtein)} gm per day
-Any extra supplementation needed: ${extraSupplementation}
-Total volume from enteral feed per day: ${feedConfig.totalVolumePerDay} mL
-
-Standard precautions to be followed while preparing feeds:
-
-* All personal protective equipment like cap & mask have to be donned.
-* Wash hands with soap for about 40-60 seconds.
-* Use sterile plastic apron and hand care gloves while preparing the feed.
-* Prepare feed as per prescription.
-* After mixing thoroughly put the preparation into feeding bag.
-* Confirm position of Ryles tube/Freka tube with hissing sound in epigastric area before starting feeds (If any doubt - inform the consultant/Trainee immediately).
-* Start feed at prescribed rate only.
-* Whenever a patient is in Nil per Oral, please confirm with ICU consultant about need for starting IV fluids.
-* Measure Gastric residual volume once each morning before starting feeds at about 6AM with a syringe. Anything above 100 mL has to be brought to the notice of ICU consultant/Trainee on duty immediately
-* Monitor GRBS as advised in daily notes, and inform ICU Consultant if GRBS > 180 mg/dL.
-* Any change in dilutions or rate of administration has to be brought to the notice of ICU consultant/Trainee.`;
+  pathwayState.dietPrescriptionText = buildPrescriptionPlainText({
+    patient,
+    feedConfig,
+    calorieMin,
+    calorieMax,
+    proteinMin,
+    proteinMax,
+    proteinCaloriesMin,
+    proteinCaloriesMax,
+    totalCaloriesRequiredMin,
+    totalCaloriesRequiredMax,
+    dayThreeTargetMin,
+    dayThreeTargetMax,
+    extraSupplementation,
+    supplementState,
+    deliveredCaloriesText,
+    deliveredProteinText,
+    totalVolumeText,
+  });
 
   dietPrescription.innerHTML = `
     <h3>Enteral Nutrition Prescription :</h3>
@@ -1048,10 +1407,10 @@ Standard precautions to be followed while preparing feeds:
           ["Rate of administration", `${feedConfig.rate} mL per hour`],
           ["Prepare fresh feed every", `${formatNumber(feedConfig.timePerFeed)} hours`],
           ["Shake feed in bag", "Hourly"],
-          ["Total calories delivered", `${Math.round(feedConfig.deliveredCalories)} KCal per day`],
-          ["Total protein delivered", `${formatNumber(feedConfig.deliveredProtein)} gm per day`],
+          ["Total calories delivered", deliveredCaloriesText],
+          ["Total protein delivered", deliveredProteinText],
           ["Any extra supplementation needed", extraSupplementation],
-          ["Total volume from enteral feed per day", `${feedConfig.totalVolumePerDay} mL`],
+          ["Total volume from enteral feed per day", totalVolumeText],
         ]
           .map(
             ([label, value]) => `
@@ -1063,12 +1422,19 @@ Standard precautions to be followed while preparing feeds:
           )
           .join("")}
       </div>
+      ${supplementConfigurator.html}
+      ${renderDualFormulaDeliverySummary(feedConfig, supplementState)}
       <div class="nurse-instructions">
         <h4>Instructions to Nurse:</h4>
         <p><strong>Dilution:</strong> ${feedConfig.dilutionLabel}</p>
         <p><strong>Rate of administration:</strong> ${feedConfig.rate} mL per hour</p>
         <p><strong>Prepare fresh feed every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
         <p><strong>Shake feed in bag:</strong> Hourly</p>
+        ${
+          supplementState.isComplete
+            ? `<p><strong>Protein supplement:</strong> ${supplementState.delivery.administrationNote}</p>`
+            : ""
+        }
       </div>
       <h4>Standard precautions to be followed while preparing feeds:</h4>
       <ul>
@@ -1630,6 +1996,11 @@ function getEstimatedIdealBodyWeight() {
 }
 
 function showEnteralPhaseSelector() {
+  if (!enteralPhaseSelector) {
+    return;
+  }
+
+  revealStage(stepBranches);
   enteralPhaseSelector.classList.remove("hidden");
   enteralPlanner.classList.add("hidden");
   enteralTargetControls.classList.add("hidden");
@@ -1638,17 +2009,28 @@ function showEnteralPhaseSelector() {
   pathwayState.enteralPhase = null;
   pathwayState.enteralPlan = null;
   enteralPhaseButtons.forEach((button) => button.classList.remove("recommended"));
+  enteralPhaseSelector.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function selectEnteralPhase(phase) {
+  if (!phase) {
+    return;
+  }
+
   pathwayState.enteralPhase = phase;
   enteralPhaseButtons.forEach((button) => {
     button.classList.toggle("recommended", button.dataset.phase === phase);
   });
   prepareEnteralPlanner();
+  revealStage(stepResult);
+  enteralPlanner.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function resetEnteralPhaseSelector() {
+  if (!enteralPhaseSelector) {
+    return;
+  }
+
   enteralPhaseSelector.classList.add("hidden");
   pathwayState.enteralPhase = null;
   enteralPhaseButtons.forEach((button) => button.classList.remove("recommended"));
@@ -1811,7 +2193,8 @@ function selectRoute(route) {
   if (route === "enteral") {
     showEnteralPhaseSelector();
     resetPreparationLibrary();
-    revealStage(stepResult);
+    hideStage(stepResult);
+    productLibrary.classList.add("hidden");
   } else {
     resetEnteralPlanner();
     productLibrary.classList.add("hidden");
@@ -1941,9 +2324,16 @@ giForm.addEventListener("submit", (event) => {
 enteralChoice.addEventListener("click", () => selectRoute("enteral"));
 parenteralChoice.addEventListener("click", () => selectRoute("parenteral"));
 
-enteralPhaseButtons.forEach((button) => {
-  button.addEventListener("click", () => selectEnteralPhase(button.dataset.phase));
-});
+if (enteralPhaseSelector) {
+  enteralPhaseSelector.addEventListener("click", (event) => {
+    const phaseButton = event.target.closest(".enteral-phase-btn");
+    if (!phaseButton?.dataset.phase) {
+      return;
+    }
+
+    selectEnteralPhase(phaseButton.dataset.phase);
+  });
+}
 
 enteralDayForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -2019,6 +2409,8 @@ dietPrescription.addEventListener("click", (event) => {
     copyDietPrescription();
   }
 });
+
+dietPrescription.addEventListener("change", handlePrescriptionSupplementInteraction);
 
 function handleCelevidaDensityChange(event) {
   const densitySelect = event.target.closest(".celevida-density-select");

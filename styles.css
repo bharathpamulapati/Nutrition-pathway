@@ -501,8 +501,13 @@ input[type="range"] {
   background: var(--enteral-soft);
   border: 1px solid rgba(36, 116, 71, 0.25);
   border-radius: 18px;
-  margin: 18px 0;
+  margin: 18px 0 0;
   padding: 18px;
+  text-align: left;
+}
+
+.branch-map .enteral-phase-selector {
+  margin-top: 22px;
 }
 
 .enteral-phase-selector h3 {
@@ -1382,6 +1387,130 @@ input[type="range"] {
   margin: 8px 0;
 }
 
+.protein-supplement-config {
+  background: #f7fbf8;
+  border: 1px solid #cfe0d5;
+  border-radius: 16px;
+  margin-top: 18px;
+  padding: 16px;
+  text-align: left;
+}
+
+.protein-supplement-config h4,
+.protein-supplement-config h5,
+.dual-formula-summary h4,
+.dual-formula-summary h5 {
+  margin: 0 0 10px;
+}
+
+.supplement-select-label {
+  color: #344556;
+  display: grid;
+  font-size: 0.92rem;
+  font-weight: 700;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.supplement-select-label select {
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.supplement-constituent-panel {
+  margin-top: 16px;
+}
+
+.supplement-constituent-grid .constituent-tile.featured {
+  border-color: var(--enteral);
+  box-shadow: inset 0 0 0 1px rgba(36, 116, 71, 0.18);
+}
+
+.supplement-mode-fieldset {
+  border: 1px solid #d8e5dc;
+  border-radius: 14px;
+  margin-top: 16px;
+  padding: 14px;
+}
+
+.supplement-mode-fieldset legend {
+  font-weight: 800;
+  padding: 0 6px;
+}
+
+.supplement-mode-option {
+  align-items: flex-start;
+  color: #344556;
+  display: grid;
+  font-size: 0.92rem;
+  gap: 10px;
+  grid-template-columns: auto 1fr;
+  margin-top: 10px;
+}
+
+.supplement-plan-summary,
+.supplement-pending,
+.supplement-nurse-note {
+  margin-top: 14px;
+}
+
+.dual-formula-summary {
+  background: #fff;
+  border: 1px solid #d8e5dc;
+  border-radius: 16px;
+  margin-top: 18px;
+  padding: 16px;
+  text-align: left;
+}
+
+.dual-formula-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.dual-formula-card {
+  background: #fbfcfd;
+  border: 1px solid #d6e0e6;
+  border-left: 5px solid var(--enteral);
+  border-radius: 14px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.dual-formula-card.supplement-card {
+  border-left-color: #2f7a4f;
+}
+
+.dual-formula-card p,
+.combined-delivery-totals p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.dual-formula-card span,
+.combined-delivery-totals span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.combined-delivery-totals {
+  background: var(--enteral-soft);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+}
+
+.combined-delivery-totals strong {
+  font-size: 1.1rem;
+}
+
 .nurse-instructions {
   margin-top: 18px;
 }
@@ -1408,6 +1537,8 @@ input[type="range"] {
   .gi-grid,
   .mini-result-grid,
   .branch-buttons,
+  .enteral-phase-buttons,
+  .dual-formula-grid,
   .target-slider-grid,
   .target-number-grid,
   .feed-controls,
