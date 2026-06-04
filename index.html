@@ -398,6 +398,29 @@
         <div id="step-result" class="stage hidden">
           <div class="connector connector-down"></div>
           <section class="node node-result">
+            <section
+              id="enteral-phase-selector"
+              class="enteral-phase-selector hidden"
+              aria-labelledby="enteral-phase-title"
+            >
+              <h3 id="enteral-phase-title">Select enteral nutrition care phase</h3>
+              <p>Choose the current phase before opening the Enteral Nutrition Target Planner.</p>
+              <div class="enteral-phase-buttons">
+                <button id="enteral-phase-1" class="route route-enteral enteral-phase-btn" type="button" data-phase="phase-1">
+                  <span>Phase 1</span>
+                  <small>In ICU</small>
+                </button>
+                <button id="enteral-phase-2" class="route route-enteral enteral-phase-btn" type="button" data-phase="phase-2">
+                  <span>Phase 2</span>
+                  <small>Post ICU in IPD</small>
+                </button>
+                <button id="enteral-phase-3" class="route route-enteral enteral-phase-btn" type="button" data-phase="phase-3">
+                  <span>Phase 3</span>
+                  <small>Post hospital discharge convalescence</small>
+                </button>
+              </div>
+            </section>
+
             <section id="enteral-planner" class="enteral-planner hidden" aria-labelledby="enteral-planner-title">
               <h3 id="enteral-planner-title">Enteral Nutrition Target Planner</h3>
               <p>

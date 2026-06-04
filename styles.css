@@ -497,6 +497,29 @@ input[type="range"] {
   margin-top: 8px;
 }
 
+.enteral-phase-selector {
+  background: var(--enteral-soft);
+  border: 1px solid rgba(36, 116, 71, 0.25);
+  border-radius: 18px;
+  margin: 18px 0;
+  padding: 18px;
+}
+
+.enteral-phase-selector h3 {
+  margin: 0 0 6px;
+}
+
+.enteral-phase-selector p {
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+
+.enteral-phase-buttons {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .enteral-planner {
   background: var(--enteral-soft);
   border: 1px solid rgba(36, 116, 71, 0.25);

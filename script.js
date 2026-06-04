@@ -20,6 +20,8 @@ const enteralChoice = document.getElementById("enteral-choice");
 const parenteralChoice = document.getElementById("parenteral-choice");
 
 const enteralPlanner = document.getElementById("enteral-planner");
+const enteralPhaseSelector = document.getElementById("enteral-phase-selector");
+const enteralPhaseButtons = document.querySelectorAll(".enteral-phase-btn");
 const enteralDayForm = document.getElementById("enteral-day-form");
 const icuDayInput = document.getElementById("icu-day");
 const enteralTargetControls = document.getElementById("enteral-target-controls");
@@ -266,6 +268,7 @@ const pathwayState = {
   patient: null,
   nutrition: null,
   gi: null,
+  enteralPhase: null,
   enteralPlan: null,
   feedConfig: null,
   dietPrescription: null,
@@ -1626,6 +1629,31 @@ function getEstimatedIdealBodyWeight() {
   return pathwayState.patient?.idealBodyWeight || pathwayState.patient?.idealBodyWeightKg || null;
 }
 
+function showEnteralPhaseSelector() {
+  enteralPhaseSelector.classList.remove("hidden");
+  enteralPlanner.classList.add("hidden");
+  enteralTargetControls.classList.add("hidden");
+  enteralDayForm.reset();
+  enteralTargetResults.innerHTML = "";
+  pathwayState.enteralPhase = null;
+  pathwayState.enteralPlan = null;
+  enteralPhaseButtons.forEach((button) => button.classList.remove("recommended"));
+}
+
+function selectEnteralPhase(phase) {
+  pathwayState.enteralPhase = phase;
+  enteralPhaseButtons.forEach((button) => {
+    button.classList.toggle("recommended", button.dataset.phase === phase);
+  });
+  prepareEnteralPlanner();
+}
+
+function resetEnteralPhaseSelector() {
+  enteralPhaseSelector.classList.add("hidden");
+  pathwayState.enteralPhase = null;
+  enteralPhaseButtons.forEach((button) => button.classList.remove("recommended"));
+}
+
 function prepareEnteralPlanner() {
   const estimatedIdealBodyWeight = getEstimatedIdealBodyWeight();
 
@@ -1650,10 +1678,12 @@ function prepareEnteralPlanner() {
 }
 
 function resetEnteralPlanner() {
+  resetEnteralPhaseSelector();
   enteralPlanner.classList.add("hidden");
   enteralTargetControls.classList.add("hidden");
   enteralDayForm.reset();
   enteralTargetResults.innerHTML = "";
+  pathwayState.enteralPhase = null;
   pathwayState.enteralPlan = null;
 }
 
@@ -1779,7 +1809,7 @@ function updateEnteralTargetDisplay() {
 
 function selectRoute(route) {
   if (route === "enteral") {
-    prepareEnteralPlanner();
+    showEnteralPhaseSelector();
     resetPreparationLibrary();
     revealStage(stepResult);
   } else {
@@ -1808,11 +1838,13 @@ function resetFlow() {
   resetPreparationLibrary();
   patientDataResults.classList.add("hidden");
   enteralPlanner.classList.add("hidden");
+  resetEnteralPhaseSelector();
   enteralTargetControls.classList.add("hidden");
   productLibrary.classList.add("hidden");
   pathwayState.patient = null;
   pathwayState.nutrition = null;
   pathwayState.gi = null;
+  pathwayState.enteralPhase = null;
   pathwayState.enteralPlan = null;
   [enteralChoice, parenteralChoice].forEach((button) =>
     button.classList.remove("recommended")
@@ -1849,6 +1881,7 @@ clearPatientData.addEventListener("click", () => {
   giResults.classList.add("hidden");
   completeAssessment.classList.add("hidden");
   enteralPlanner.classList.add("hidden");
+  resetEnteralPhaseSelector();
   enteralTargetControls.classList.add("hidden");
   productLibrary.classList.add("hidden");
   hideStage(stepNutrition);
@@ -1857,6 +1890,7 @@ clearPatientData.addEventListener("click", () => {
   hideStage(stepResult);
   pathwayState.nutrition = null;
   pathwayState.gi = null;
+  pathwayState.enteralPhase = null;
   pathwayState.enteralPlan = null;
   [enteralChoice, parenteralChoice].forEach((button) =>
     button.classList.remove("recommended")
@@ -1880,6 +1914,7 @@ resetNutrition.addEventListener("click", () => {
   giResults.classList.add("hidden");
   completeAssessment.classList.add("hidden");
   enteralPlanner.classList.add("hidden");
+  resetEnteralPhaseSelector();
   enteralTargetControls.classList.add("hidden");
   productLibrary.classList.add("hidden");
   hideStage(stepGi);
@@ -1887,6 +1922,7 @@ resetNutrition.addEventListener("click", () => {
   hideStage(stepResult);
   pathwayState.nutrition = null;
   pathwayState.gi = null;
+  pathwayState.enteralPhase = null;
   pathwayState.enteralPlan = null;
   [enteralChoice, parenteralChoice].forEach((button) =>
     button.classList.remove("recommended")
@@ -1904,6 +1940,10 @@ giForm.addEventListener("submit", (event) => {
 
 enteralChoice.addEventListener("click", () => selectRoute("enteral"));
 parenteralChoice.addEventListener("click", () => selectRoute("parenteral"));
+
+enteralPhaseButtons.forEach((button) => {
+  button.addEventListener("click", () => selectEnteralPhase(button.dataset.phase));
+});
 
 enteralDayForm.addEventListener("submit", (event) => {
   event.preventDefault();
