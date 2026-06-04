@@ -621,7 +621,104 @@
               <p id="feed-instruction" class="summary"></p>
             </div>
 
-            <button id="generate-prescription" class="prescription-button" type="button">
+            <div id="protein-deficit-panel" class="nested-tile protein-deficit-panel hidden">
+              <h3>Protein deficit from current feed configuration</h3>
+              <p class="summary">
+                Based on your selected product, dilution, duration, and rate above.
+              </p>
+              <div id="protein-deficit-summary" class="summary-tile-grid"></div>
+            </div>
+
+            <section
+              id="protein-supplement-panel"
+              class="protein-supplement-config hidden"
+              aria-labelledby="protein-supplement-title"
+            >
+              <h3 id="protein-supplement-title">Protein deficit supplementation</h3>
+              <p id="protein-supplement-intro" class="summary"></p>
+
+              <label class="supplement-select-label">
+                Extra protein supplement formula
+                <select id="protein-supplement-select">
+                  <option value="">Select a formula</option>
+                </select>
+              </label>
+
+              <div id="supplement-constituents-wrap" class="supplement-constituents-wrap hidden"></div>
+
+              <label class="supplement-select-label">
+                Administration method
+                <select id="protein-supplement-mode" disabled>
+                  <option value="">Select method</option>
+                  <option value="separate">
+                    Give separately as per manufacturer recommended standard dilution
+                  </option>
+                  <option value="powder">Add supplement powder to the ongoing primary feed</option>
+                </select>
+              </label>
+
+              <div id="supplement-feed-controls" class="supplement-feed-controls hidden">
+                <p id="supplement-mode-note" class="summary"></p>
+                <label>
+                  Supplement feeding duration
+                  <select id="supplement-feed-hours">
+                    <option value="18">18 hours (6AM-12AM)</option>
+                    <option value="24">24 hours (Continuous)</option>
+                  </select>
+                </label>
+                <label class="range-control feed-rate-control">
+                  <span class="range-heading">
+                    Supplement feeding rate
+                    <strong><span id="supplement-feed-rate-value">20</span> mL/hour</strong>
+                  </span>
+                  <input id="supplement-feed-rate" type="range" min="20" max="150" step="5" value="20" />
+                </label>
+
+                <div class="nested-tile">
+                  <h4>Supplement feed configuration</h4>
+                  <div id="supplement-feed-config-summary" class="summary-tile-grid four-up"></div>
+                </div>
+
+                <div class="nested-tile">
+                  <h4>Supplement target analysis</h4>
+                  <div id="supplement-feed-target-analysis" class="summary-tile-grid"></div>
+                </div>
+
+                <div class="nested-tile">
+                  <h4>Supplement feed schedule</h4>
+                  <div id="supplement-feed-schedule" class="summary-tile-grid six-up"></div>
+                  <p id="supplement-feed-instruction" class="summary"></p>
+                </div>
+              </div>
+            </section>
+
+            <section id="combined-feed-panel" class="nested-tile combined-feed-panel hidden">
+              <h3>Combined feed configuration and target analysis</h3>
+              <p class="summary">Totals from the primary formula and protein supplement formula together.</p>
+              <div id="combined-feed-target-analysis" class="summary-tile-grid"></div>
+
+              <fieldset class="schedule-mode-fieldset">
+                <legend>Feed schedule for prescription</legend>
+                <label class="schedule-mode-option">
+                  <input type="radio" name="feed-schedule-mode" value="separate" />
+                  Show separate feed schedules for each formula
+                </label>
+                <label class="schedule-mode-option">
+                  <input type="radio" name="feed-schedule-mode" value="combined" />
+                  Show one combined feed schedule for both formulas
+                </label>
+              </fieldset>
+
+              <div id="combined-feed-schedule-output" class="combined-feed-schedule-output"></div>
+              <p id="prescription-ready-note" class="summary prescription-ready-note" aria-live="polite"></p>
+            </section>
+
+            <button
+              id="generate-prescription"
+              class="prescription-button"
+              type="button"
+              disabled
+            >
               Generate Diet Prescription
             </button>
 

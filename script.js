@@ -62,6 +62,26 @@ const feedSchedule = document.getElementById("feed-schedule");
 const feedInstruction = document.getElementById("feed-instruction");
 const generatePrescription = document.getElementById("generate-prescription");
 const dietPrescription = document.getElementById("diet-prescription");
+const proteinDeficitPanel = document.getElementById("protein-deficit-panel");
+const proteinDeficitSummary = document.getElementById("protein-deficit-summary");
+const proteinSupplementPanel = document.getElementById("protein-supplement-panel");
+const proteinSupplementIntro = document.getElementById("protein-supplement-intro");
+const proteinSupplementSelect = document.getElementById("protein-supplement-select");
+const proteinSupplementMode = document.getElementById("protein-supplement-mode");
+const supplementConstituentsWrap = document.getElementById("supplement-constituents-wrap");
+const supplementFeedControls = document.getElementById("supplement-feed-controls");
+const supplementModeNote = document.getElementById("supplement-mode-note");
+const supplementFeedHours = document.getElementById("supplement-feed-hours");
+const supplementFeedRate = document.getElementById("supplement-feed-rate");
+const supplementFeedRateValue = document.getElementById("supplement-feed-rate-value");
+const supplementFeedConfigSummary = document.getElementById("supplement-feed-config-summary");
+const supplementFeedTargetAnalysis = document.getElementById("supplement-feed-target-analysis");
+const supplementFeedSchedule = document.getElementById("supplement-feed-schedule");
+const supplementFeedInstruction = document.getElementById("supplement-feed-instruction");
+const combinedFeedPanel = document.getElementById("combined-feed-panel");
+const combinedFeedTargetAnalysis = document.getElementById("combined-feed-target-analysis");
+const combinedFeedScheduleOutput = document.getElementById("combined-feed-schedule-output");
+const prescriptionReadyNote = document.getElementById("prescription-ready-note");
 
 function createPreparation(
   name,
@@ -271,6 +291,7 @@ const pathwayState = {
   enteralPhase: null,
   enteralPlan: null,
   feedConfig: null,
+  supplementFeedConfig: null,
   proteinSupplementSelection: null,
   dietPrescription: null,
   dietPrescriptionText: null,
@@ -771,14 +792,10 @@ function createSummaryTile(label, value, detail = "") {
   `;
 }
 
-function getFeedConfigurationData() {
-  const selectedProduct = getSelectedFeedProduct();
-  const dilutionMultiplier = Number(feedDilution.value);
-  const hours = Number(feedHours.value);
-  const rate = Number(feedRate.value);
-  const baseCalDensity = getConstituentNumber(selectedProduct, "Cal Density");
-  const baseProtein = getConstituentNumber(selectedProduct, "Protein");
-  const baseVolume = getConstituentNumber(selectedProduct, "Total Volume");
+function buildFeedConfigFromProduct(product, { dilutionMultiplier, hours, rate, role = "primary" }) {
+  const baseCalDensity = getConstituentNumber(product, "Cal Density");
+  const baseProtein = getConstituentNumber(product, "Protein");
+  const baseVolume = getConstituentNumber(product, "Total Volume");
   const adjustedCalDensity = baseCalDensity * dilutionMultiplier;
   const adjustedProteinPerMl = (baseProtein / baseVolume) * dilutionMultiplier;
   const volumePerFeed = baseVolume / dilutionMultiplier;
@@ -791,14 +808,16 @@ function getFeedConfigurationData() {
   const deliveredProtein = adjustedProteinPerMl * totalVolumePerDay;
   const plan = pathwayState.enteralPlan;
   const calorieTarget = plan?.fullCalories || null;
-  const calorieTargetMinKcal = plan?.fullCaloriesMin ?? null;
-  const calorieTargetMaxKcal = plan?.fullCaloriesMax ?? null;
+  const calorieTargetMinKcal = plan?.dayCaloriesMin ?? plan?.fullCaloriesMin ?? null;
+  const calorieTargetMaxKcal = plan?.dayCaloriesMax ?? plan?.fullCaloriesMax ?? null;
   const proteinRequired = plan?.proteinGrams || null;
 
   return {
-    selectedProduct,
+    role,
+    selectedProduct: product,
     dilutionMultiplier,
     dilutionLabel: getDilutionLabel(dilutionMultiplier),
+    manufacturerDilution: product.dilution,
     hours,
     rate,
     baseCalDensity,
@@ -821,78 +840,116 @@ function getFeedConfigurationData() {
   };
 }
 
-function updateFeedConfiguration() {
-  const feedConfig = getFeedConfigurationData();
+function getFeedConfigurationData() {
+  const selectedProduct = getSelectedFeedProduct();
+  return buildFeedConfigFromProduct(selectedProduct, {
+    dilutionMultiplier: Number(feedDilution.value),
+    hours: Number(feedHours.value),
+    rate: Number(feedRate.value),
+    role: "primary",
+  });
+}
 
-  pathwayState.feedConfig = feedConfig;
-  feedRateValue.textContent = feedConfig.rate;
-  feedConfigSummary.innerHTML = [
-    createSummaryTile("Dilution type", feedConfig.dilutionLabel),
+function getCalorieTargetLabel(config) {
+  if (config.calorieTargetMinKcal == null || config.calorieTargetMaxKcal == null) {
+    return "Set in planner";
+  }
+
+  return config.calorieTargetMinKcal === config.calorieTargetMaxKcal
+    ? `${Math.round(config.calorieTargetMinKcal)} kcal/day`
+    : `${Math.round(config.calorieTargetMinKcal)}-${Math.round(config.calorieTargetMaxKcal)} kcal/day`;
+}
+
+function getCalorieTargetPercent(config, deliveredCalories) {
+  if (config.calorieTargetMinKcal == null || config.calorieTargetMaxKcal == null) {
+    return "Complete Enteral Nutrition Target Planner";
+  }
+
+  const midTarget = (config.calorieTargetMinKcal + config.calorieTargetMaxKcal) / 2;
+  return `${Math.round((deliveredCalories / midTarget) * 100)}% of day calorie target`;
+}
+
+function getProteinTargetPercent(config, deliveredProtein) {
+  if (config.proteinRequired == null) {
+    return "Complete Enteral Nutrition Target Planner";
+  }
+
+  return `${Math.round((deliveredProtein / config.proteinRequired) * 100)}% of protein target`;
+}
+
+function renderFeedConfigPanels(config, containers) {
+  if (!config?.selectedProduct) {
+    return;
+  }
+
+  containers.summary.innerHTML = [
+    createSummaryTile("Dilution type", config.dilutionLabel),
     createSummaryTile(
       "Feeding hours",
-      `${feedConfig.hours} hours`,
-      feedConfig.hours === 18 ? "6AM-12AM" : "Continuous"
+      `${config.hours} hours`,
+      config.hours === 18 ? "6AM-12AM" : "Continuous"
     ),
-    createSummaryTile("Current rate", `${feedConfig.rate} mL/hour`),
-    createSummaryTile("Time per feed", `${formatNumber(feedConfig.timePerFeed)} hours`),
+    createSummaryTile("Current rate", `${config.rate} mL/hour`),
+    createSummaryTile("Time per feed", `${formatNumber(config.timePerFeed)} hours`),
   ].join("");
 
-  const calorieTargetLabel =
-    feedConfig.calorieTargetMinKcal != null && feedConfig.calorieTargetMaxKcal != null
-      ? feedConfig.calorieTargetMinKcal === feedConfig.calorieTargetMaxKcal
-        ? `${Math.round(feedConfig.calorieTargetMinKcal)} kcal/day`
-        : `${Math.round(feedConfig.calorieTargetMinKcal)}-${Math.round(
-            feedConfig.calorieTargetMaxKcal
-          )} kcal/day`
-      : "Set in planner";
-  const pctOfCalorieTarget =
-    feedConfig.calorieTarget != null
-      ? `${Math.round((feedConfig.deliveredCalories / feedConfig.calorieTarget) * 100)}% of target delivered`
-      : "Complete Enteral Nutrition Target Planner";
-  const pctOfProteinTarget =
-    feedConfig.proteinRequired != null
-      ? `${Math.round((feedConfig.deliveredProtein / feedConfig.proteinRequired) * 100)}% of target delivered`
-      : "Complete Enteral Nutrition Target Planner";
-
-  feedTargetAnalysis.innerHTML = [
-    createSummaryTile(
-      "Calorie target required",
-      calorieTargetLabel
-    ),
+  containers.targetAnalysis.innerHTML = [
+    createSummaryTile("Calorie target required", getCalorieTargetLabel(config)),
     createSummaryTile(
       "Calories delivered",
-      `${Math.round(feedConfig.deliveredCalories)} kcal/day`,
-      pctOfCalorieTarget
+      `${Math.round(config.deliveredCalories)} kcal/day`,
+      getCalorieTargetPercent(config, config.deliveredCalories)
     ),
     createSummaryTile(
       "Protein target required",
-      feedConfig.proteinRequired ? `${formatNumber(feedConfig.proteinRequired)} g/day` : "Set in planner",
+      config.proteinRequired ? `${formatNumber(config.proteinRequired)} g/day` : "Set in planner",
       ""
     ),
     createSummaryTile(
       "Protein delivered",
-      `${formatNumber(feedConfig.deliveredProtein)} g/day`,
-      pctOfProteinTarget
+      `${formatNumber(config.deliveredProtein)} g/day`,
+      getProteinTargetPercent(config, config.deliveredProtein)
     ),
   ].join("");
 
-  feedSchedule.innerHTML = [
-    createSummaryTile("Feeds per day", feedConfig.feedsPerDay),
+  containers.schedule.innerHTML = [
+    createSummaryTile("Feeds per day", config.feedsPerDay),
     createSummaryTile(
       "Calories and protein per feed",
-      `${Math.round(feedConfig.caloriesPerFeed)} kcal / ${formatNumber(
-        feedConfig.proteinPerFeed
-      )} g protein`
+      `${Math.round(config.caloriesPerFeed)} kcal / ${formatNumber(config.proteinPerFeed)} g protein`
     ),
-    createSummaryTile("Volume per feed", `${Math.round(feedConfig.volumePerFeed)} mL`),
-    createSummaryTile("Total calories per day", `${Math.round(feedConfig.deliveredCalories)} kcal`),
-    createSummaryTile("Total protein per day", `${formatNumber(feedConfig.deliveredProtein)} g`),
-    createSummaryTile("Total feed volume per day", `${feedConfig.totalVolumePerDay} mL`),
+    createSummaryTile("Volume per feed", `${Math.round(config.volumePerFeed)} mL`),
+    createSummaryTile("Total calories per day", `${Math.round(config.deliveredCalories)} kcal`),
+    createSummaryTile("Total protein per day", `${formatNumber(config.deliveredProtein)} g`),
+    createSummaryTile("Total feed volume per day", `${config.totalVolumePerDay} mL`),
   ].join("");
 
-  feedInstruction.textContent = `Instruction: Prepare fresh feed every ${formatNumber(
-    feedConfig.timePerFeed
-  )} hours.`;
+  if (containers.instruction) {
+    containers.instruction.textContent = `Instruction: Prepare fresh feed every ${formatNumber(
+      config.timePerFeed
+    )} hours.`;
+  }
+}
+
+function updateFeedConfiguration() {
+  if (!selectedFeedProductName) {
+    updateProteinDeficitAndSupplement(null);
+    updateGeneratePrescriptionButton(false);
+    return;
+  }
+
+  const feedConfig = getFeedConfigurationData();
+
+  pathwayState.feedConfig = feedConfig;
+  feedRateValue.textContent = feedConfig.rate;
+  renderFeedConfigPanels(feedConfig, {
+    summary: feedConfigSummary,
+    targetAnalysis: feedTargetAnalysis,
+    schedule: feedSchedule,
+    instruction: feedInstruction,
+  });
+
+  updateProteinDeficitAndSupplement(feedConfig);
 
   if (!dietPrescription.classList.contains("hidden")) {
     renderDietPrescription(false);
@@ -911,7 +968,27 @@ function resetFeedConfiguration() {
   feedConfigurator.classList.add("hidden");
   pathwayState.dietPrescription = null;
   pathwayState.dietPrescriptionText = null;
+  pathwayState.supplementFeedConfig = null;
   pathwayState.proteinSupplementSelection = null;
+  if (proteinSupplementSelect) {
+    proteinSupplementSelect.value = "";
+  }
+  if (proteinSupplementMode) {
+    proteinSupplementMode.value = "";
+    proteinSupplementMode.disabled = true;
+  }
+  if (supplementFeedRate) {
+    supplementFeedRate.value = "20";
+  }
+  if (supplementFeedHours) {
+    supplementFeedHours.value = "18";
+  }
+  if (supplementFeedRateValue) {
+    supplementFeedRateValue.textContent = "20";
+  }
+  document.querySelectorAll('input[name="feed-schedule-mode"]').forEach((input) => {
+    input.checked = false;
+  });
   updateSelectedFeedProductName();
   renderEnteralPreparations();
   updateFeedConfiguration();
@@ -964,6 +1041,97 @@ function getPrescriptionProductOptions() {
   return options;
 }
 
+function populateSupplementProductSelect() {
+  if (!proteinSupplementSelect) {
+    return;
+  }
+
+  const selection = pathwayState.proteinSupplementSelection?.productKey || "";
+  const options = getPrescriptionProductOptions();
+
+  proteinSupplementSelect.innerHTML = `
+    <option value="">Select a formula</option>
+    ${options
+      .map(
+        (option) =>
+          `<option value="${option.value}" ${
+            selection === option.value ? "selected" : ""
+          }>${option.label}</option>`
+      )
+      .join("")}
+  `;
+}
+
+function getProteinRangeTargets() {
+  const patient = getPrescriptionPatientData();
+  const proteinWeight = patient.idealBodyWeight || patient.calculationWeight;
+  const plan = pathwayState.enteralPlan;
+
+  return {
+    proteinMin: proteinWeight * 1.2,
+    proteinMax: proteinWeight * 1.5,
+    proteinRequired: plan?.proteinGrams ?? proteinWeight * 1.2,
+    calorieMin: plan?.dayCaloriesMin ?? plan?.fullCaloriesMin ?? null,
+    calorieMax: plan?.dayCaloriesMax ?? plan?.fullCaloriesMax ?? null,
+  };
+}
+
+function getProteinDeficitFromFeed(feedConfig) {
+  const targets = getProteinRangeTargets();
+  const extraProteinMin = Math.max(targets.proteinMin - feedConfig.deliveredProtein, 0);
+  const extraProteinMax = Math.max(targets.proteinMax - feedConfig.deliveredProtein, 0);
+  const hasDeficit = extraProteinMax > 0;
+
+  return {
+    hasDeficit,
+    extraProteinMin,
+    extraProteinMax,
+    targets,
+  };
+}
+
+function ensureProteinSupplementSelection() {
+  if (!pathwayState.proteinSupplementSelection) {
+    pathwayState.proteinSupplementSelection = {
+      productKey: "",
+      deliveryMode: "",
+      rate: 20,
+      hours: 18,
+      scheduleMode: "",
+    };
+  }
+
+  return pathwayState.proteinSupplementSelection;
+}
+
+function getSupplementFeedConfig() {
+  const selection = ensureProteinSupplementSelection();
+  const product = resolveSupplementProductFromKey(selection.productKey);
+
+  if (!product || !selection.deliveryMode) {
+    return null;
+  }
+
+  return buildFeedConfigFromProduct(product, {
+    dilutionMultiplier: 1,
+    hours: Number(selection.hours || supplementFeedHours?.value || 18),
+    rate: Number(selection.rate || supplementFeedRate?.value || 20),
+    role: "supplement",
+  });
+}
+
+function getSupplementDeliveryModeLabel(mode) {
+  if (mode === "separate") {
+    return "Separate feed at manufacturer standard dilution";
+  }
+
+  if (mode === "powder") {
+    return "Powder added to ongoing primary feed";
+  }
+
+  return "";
+}
+
 function resolveSupplementProductFromKey(productKey) {
   if (!productKey) {
     return null;
@@ -992,13 +1160,13 @@ function getSupplementProductDisplayName(product) {
 }
 
 function renderSupplementConstituentPanel(product) {
-  if (!product) {
-    return "";
+  if (!supplementConstituentsWrap || !product) {
+    return;
   }
 
-  return `
+  supplementConstituentsWrap.innerHTML = `
     <div class="supplement-constituent-panel">
-      <h5>Selected supplement constituents</h5>
+      <h4>Selected supplement constituents</h4>
       <div class="constituent-grid supplement-constituent-grid">
         ${product.constituents
           .map((item) =>
@@ -1012,205 +1180,359 @@ function renderSupplementConstituentPanel(product) {
       <p class="dilution-note"><strong>Manufacturer standard dilution:</strong> ${product.dilution}</p>
     </div>
   `;
+  supplementConstituentsWrap.classList.remove("hidden");
 }
 
-function calculateProteinSupplementDelivery(product, proteinGap, deliveryMode, primaryFeedName) {
-  const baseProtein = getConstituentNumber(product, "Protein");
-  const baseCalories = getConstituentNumber(product, "Calories");
-  const baseVolume = getConstituentNumber(product, "Total Volume");
+function getCombinedFeedTotals(primaryConfig, supplementConfig) {
+  const combinedCalories =
+    primaryConfig.deliveredCalories + (supplementConfig?.deliveredCalories || 0);
+  const combinedProtein =
+    primaryConfig.deliveredProtein + (supplementConfig?.deliveredProtein || 0);
+  const combinedVolume =
+    primaryConfig.totalVolumePerDay + (supplementConfig?.totalVolumePerDay || 0);
 
-  if (!product || baseProtein <= 0 || proteinGap <= 0 || !deliveryMode) {
-    return null;
-  }
-
-  const servingsPerDay = Math.ceil(proteinGap / baseProtein);
-  const supplementalProtein = servingsPerDay * baseProtein;
-  const supplementalCalories = servingsPerDay * baseCalories;
-  const supplementalVolume = servingsPerDay * baseVolume;
-  const productLabel = getSupplementProductDisplayName(product);
-
-  let administrationNote;
-  if (deliveryMode === "separate") {
-    administrationNote = `Give ${servingsPerDay} separate preparation(s) per day using manufacturer recommended standard dilution (${product.dilution}). Total supplement volume: ${Math.round(supplementalVolume)} mL/day.`;
-  } else {
-    administrationNote = `Add supplement powder equivalent to ${servingsPerDay} standard preparation(s) per day (${formatNumber(supplementalProtein)} g protein) into the ongoing ${primaryFeedName} feed. Mix thoroughly before each administration.`;
-  }
-
-  return {
-    product,
-    productLabel,
-    deliveryMode,
-    proteinGap,
-    servingsPerDay,
-    supplementalProtein,
-    supplementalCalories,
-    supplementalVolume,
-    administrationNote,
-    deliveryModeLabel:
-      deliveryMode === "separate"
-        ? "Separate feed at manufacturer standard dilution"
-        : "Powder added to ongoing primary feed",
-  };
+  return { combinedCalories, combinedProtein, combinedVolume };
 }
 
-function getProteinSupplementState(extraProteinMax, feedConfig) {
-  const hasDeficit = extraProteinMax > 0;
+function areCombinedTargetsMet(primaryConfig, supplementConfig, hasDeficit) {
+  const targets = getProteinRangeTargets();
+  const { combinedCalories, combinedProtein } = getCombinedFeedTotals(
+    primaryConfig,
+    supplementConfig
+  );
+
+  const proteinOk = combinedProtein >= targets.proteinRequired;
+  const calorieOk =
+    targets.calorieMin == null || targets.calorieMax == null
+      ? true
+      : combinedCalories >= targets.calorieMin && combinedCalories <= targets.calorieMax * 1.15;
 
   if (!hasDeficit) {
-    pathwayState.proteinSupplementSelection = null;
-    return { hasDeficit: false, selection: null, delivery: null, isComplete: false };
+    return proteinOk && calorieOk;
   }
 
-  if (!pathwayState.proteinSupplementSelection) {
-    pathwayState.proteinSupplementSelection = { productKey: "", deliveryMode: "" };
-  }
-
-  const selection = pathwayState.proteinSupplementSelection;
-  const product = resolveSupplementProductFromKey(selection.productKey);
-  const delivery =
-    product && selection.deliveryMode
-      ? calculateProteinSupplementDelivery(
-          product,
-          extraProteinMax,
-          selection.deliveryMode,
-          feedConfig.selectedProduct.name
-        )
-      : null;
-
-  return {
-    hasDeficit: true,
-    selection,
-    product,
-    delivery,
-    isComplete: Boolean(delivery),
-  };
+  return proteinOk && calorieOk && Boolean(supplementConfig);
 }
 
-function renderProteinSupplementConfigurator(supplementState, extraProteinMin, extraProteinMax) {
-  if (!supplementState.hasDeficit) {
+function renderCombinedFeedSchedule(primaryConfig, supplementConfig, scheduleMode, selection) {
+  const primaryName = getSupplementProductDisplayName(primaryConfig.selectedProduct);
+  const supplementName = getSupplementProductDisplayName(supplementConfig.selectedProduct);
+  const modeLabel = getSupplementDeliveryModeLabel(selection.deliveryMode);
+
+  if (scheduleMode === "combined") {
+    const { combinedCalories, combinedProtein, combinedVolume } = getCombinedFeedTotals(
+      primaryConfig,
+      supplementConfig
+    );
+
+    return `
+      <div class="combined-schedule-card">
+        <h4>Combined feed schedule (both formulas)</h4>
+        <p><strong>Formula 1:</strong> ${primaryName} at ${primaryConfig.rate} mL/hour (${primaryConfig.dilutionLabel})</p>
+        <p><strong>Formula 2:</strong> ${supplementName} at ${supplementConfig.rate} mL/hour (${modeLabel})</p>
+        <p><strong>Combined volume per day:</strong> ${combinedVolume} mL</p>
+        <p><strong>Combined calories per day:</strong> ${Math.round(combinedCalories)} kcal</p>
+        <p><strong>Combined protein per day:</strong> ${formatNumber(combinedProtein)} g</p>
+        <p class="summary">Prepare and administer each formula as prescribed; coordinate timing per ICU protocol.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="separate-schedule-grid">
+      <article class="schedule-formula-card">
+        <h4>Formula 1 schedule — ${primaryName}</h4>
+        <p>Rate: <strong>${primaryConfig.rate} mL/hour</strong></p>
+        <p>Dilution: <strong>${primaryConfig.dilutionLabel}</strong></p>
+        <p>Feeds per day: <strong>${primaryConfig.feedsPerDay}</strong></p>
+        <p>Prepare fresh feed every <strong>${formatNumber(primaryConfig.timePerFeed)} hours</strong></p>
+        <p>Volume per day: <strong>${primaryConfig.totalVolumePerDay} mL</strong></p>
+      </article>
+      <article class="schedule-formula-card supplement-card">
+        <h4>Formula 2 schedule — ${supplementName}</h4>
+        <p>Method: <strong>${modeLabel}</strong></p>
+        <p>Rate: <strong>${supplementConfig.rate} mL/hour</strong></p>
+        <p>Standard manufacturer dilution</p>
+        <p>Feeds per day: <strong>${supplementConfig.feedsPerDay}</strong></p>
+        <p>Prepare fresh feed every <strong>${formatNumber(supplementConfig.timePerFeed)} hours</strong></p>
+        <p>Volume per day: <strong>${supplementConfig.totalVolumePerDay} mL</strong></p>
+      </article>
+    </div>
+  `;
+}
+
+function updateCombinedFeedPanel(primaryConfig, deficitState) {
+  const selection = ensureProteinSupplementSelection();
+  const supplementConfig = pathwayState.supplementFeedConfig;
+  const hasSupplementSetup = Boolean(
+    supplementConfig && selection.productKey && selection.deliveryMode
+  );
+
+  if (!combinedFeedPanel) {
+    return { targetsMet: false, scheduleReady: false };
+  }
+
+  if (!deficitState.hasDeficit || !hasSupplementSetup) {
+    combinedFeedPanel.classList.add("hidden");
     return {
-      html: "",
-      extraSupplementationText: "No extra protein supplementation needed",
+      targetsMet: areCombinedTargetsMet(primaryConfig, null, false),
+      scheduleReady: !deficitState.hasDeficit,
     };
   }
 
-  const { selection, product, delivery, isComplete } = supplementState;
-  const productOptions = getPrescriptionProductOptions();
-  const deficitText = formatRange(extraProteinMin, extraProteinMax, "g protein per day");
+  combinedFeedPanel.classList.remove("hidden");
+  const { combinedCalories, combinedProtein, combinedVolume } = getCombinedFeedTotals(
+    primaryConfig,
+    supplementConfig
+  );
+  const targets = getProteinRangeTargets();
+  const targetsMet = areCombinedTargetsMet(primaryConfig, supplementConfig, true);
+  const calorieTargetLabel = getCalorieTargetLabel(primaryConfig);
 
-  const configuratorHtml = `
-    <section class="protein-supplement-config" aria-labelledby="protein-supplement-title">
-      <h4 id="protein-supplement-title">Protein deficit supplementation</h4>
-      <p class="summary">Estimated protein deficit: <strong>${deficitText}</strong>. Select a commercial preparation and how it should be given.</p>
-      <label class="supplement-select-label">
-        Extra protein supplement formula
-        <select id="protein-supplement-select">
-          <option value="">Select a formula</option>
-          ${productOptions
-            .map(
-              (option) => `
-                <option value="${option.value}" ${
-                  selection.productKey === option.value ? "selected" : ""
-                }>${option.label}</option>
-              `
-            )
-            .join("")}
-        </select>
-      </label>
-      ${product ? renderSupplementConstituentPanel(product) : ""}
-      ${
-        product
-          ? `
-            <fieldset class="supplement-mode-fieldset">
-              <legend>Administration method</legend>
-              <label class="supplement-mode-option">
-                <input
-                  type="radio"
-                  name="protein-supplement-mode"
-                  value="separate"
-                  ${selection.deliveryMode === "separate" ? "checked" : ""}
-                />
-                Give separately using manufacturer recommended standard dilution
-              </label>
-              <label class="supplement-mode-option">
-                <input
-                  type="radio"
-                  name="protein-supplement-mode"
-                  value="powder"
-                  ${selection.deliveryMode === "powder" ? "checked" : ""}
-                />
-                Add supplement powder to the ongoing primary feed
-              </label>
-            </fieldset>
-          `
-          : ""
-      }
-      ${
-        isComplete
-          ? `
-            <div class="supplement-plan-summary">
-              <p><strong>Supplement plan:</strong> ${delivery.administrationNote}</p>
-            </div>
-          `
-          : `<p class="summary supplement-pending">Select a formula and administration method to finalize combined delivery totals.</p>`
-      }
-    </section>
-  `;
+  combinedFeedTargetAnalysis.innerHTML = [
+    createSummaryTile("Day calorie target", calorieTargetLabel),
+    createSummaryTile(
+      "Combined calories delivered",
+      `${Math.round(combinedCalories)} kcal/day`,
+      getCalorieTargetPercent(primaryConfig, combinedCalories)
+    ),
+    createSummaryTile(
+      "Protein target required",
+      `${formatNumber(targets.proteinRequired)} g/day`,
+      ""
+    ),
+    createSummaryTile(
+      "Combined protein delivered",
+      `${formatNumber(combinedProtein)} g/day`,
+      `${Math.round((combinedProtein / targets.proteinRequired) * 100)}% of protein target`
+    ),
+    createSummaryTile("Combined feed volume per day", `${combinedVolume} mL`),
+    createSummaryTile(
+      "Formula 1 protein",
+      `${formatNumber(primaryConfig.deliveredProtein)} g/day`,
+      getSupplementProductDisplayName(primaryConfig.selectedProduct)
+    ),
+    createSummaryTile(
+      "Formula 2 protein",
+      `${formatNumber(supplementConfig.deliveredProtein)} g/day`,
+      getSupplementProductDisplayName(supplementConfig.selectedProduct)
+    ),
+  ].join("");
 
-  const extraSupplementationText = isComplete
-    ? `${delivery.productLabel} — ${delivery.deliveryModeLabel}; ${formatNumber(delivery.supplementalProtein)} g protein/day`
-    : `Protein deficit ${deficitText} — select supplement formula and administration method below`;
+  const scheduleMode = selection.scheduleMode;
+  const scheduleReady = Boolean(scheduleMode);
 
-  return { html: configuratorHtml, extraSupplementationText, delivery };
-}
-
-function renderDualFormulaDeliverySummary(feedConfig, supplementState) {
-  if (!supplementState.isComplete) {
-    return "";
+  if (scheduleReady) {
+    combinedFeedScheduleOutput.innerHTML = renderCombinedFeedSchedule(
+      primaryConfig,
+      supplementConfig,
+      scheduleMode,
+      selection
+    );
+  } else {
+    combinedFeedScheduleOutput.innerHTML =
+      '<p class="summary">Choose whether to show separate or combined feed schedules in the prescription.</p>';
   }
 
-  const { delivery } = supplementState;
-  const primaryName = feedConfig.selectedProduct.name;
-  const primaryCalories = Math.round(feedConfig.deliveredCalories);
-  const primaryProtein = formatNumber(feedConfig.deliveredProtein);
-  const combinedCalories = Math.round(feedConfig.deliveredCalories + delivery.supplementalCalories);
-  const combinedProtein = formatNumber(feedConfig.deliveredProtein + delivery.supplementalProtein);
+  if (targetsMet && scheduleReady) {
+    prescriptionReadyNote.textContent =
+      "Calorie and protein targets are met with both formulas. You can generate the final diet prescription.";
+    prescriptionReadyNote.classList.add("ready");
+  } else if (!targetsMet) {
+    prescriptionReadyNote.textContent =
+      "Adjust primary or supplement feeding rates until combined calorie and protein targets are met, then choose a feed schedule display.";
+    prescriptionReadyNote.classList.remove("ready");
+  } else {
+    prescriptionReadyNote.textContent =
+      "Select separate or combined feed schedule display, then generate the prescription.";
+    prescriptionReadyNote.classList.remove("ready");
+  }
+
+  document.querySelectorAll('input[name="feed-schedule-mode"]').forEach((input) => {
+    input.checked = input.value === scheduleMode;
+  });
+
+  return { targetsMet, scheduleReady: scheduleReady && targetsMet };
+}
+
+function updateProteinDeficitAndSupplement(primaryConfig) {
+  if (!primaryConfig) {
+    proteinDeficitPanel?.classList.add("hidden");
+    proteinSupplementPanel?.classList.add("hidden");
+    combinedFeedPanel?.classList.add("hidden");
+    pathwayState.supplementFeedConfig = null;
+    updateGeneratePrescriptionButton(false);
+    return;
+  }
+
+  const deficitState = getProteinDeficitFromFeed(primaryConfig);
+  const selection = ensureProteinSupplementSelection();
+
+  if (!deficitState.hasDeficit) {
+    pathwayState.proteinSupplementSelection = null;
+    pathwayState.supplementFeedConfig = null;
+    proteinDeficitPanel?.classList.add("hidden");
+    proteinSupplementPanel?.classList.add("hidden");
+    combinedFeedPanel?.classList.add("hidden");
+    const targetsMet = areCombinedTargetsMet(primaryConfig, null, false);
+    updateGeneratePrescriptionButton(targetsMet);
+    return;
+  }
+
+  proteinDeficitPanel?.classList.remove("hidden");
+  proteinDeficitSummary.innerHTML = [
+    createSummaryTile(
+      "Protein delivered (primary feed)",
+      `${formatNumber(primaryConfig.deliveredProtein)} g/day`
+    ),
+    createSummaryTile(
+      "Recommended protein intake",
+      formatRange(deficitState.targets.proteinMin, deficitState.targets.proteinMax, "g/day")
+    ),
+    createSummaryTile(
+      "Estimated protein deficit",
+      formatRange(deficitState.extraProteinMin, deficitState.extraProteinMax, "g/day"),
+      "Gap to close with supplement formula"
+    ),
+  ].join("");
+
+  proteinSupplementPanel?.classList.remove("hidden");
+  proteinSupplementIntro.textContent = `Estimated protein deficit: ${formatRange(
+    deficitState.extraProteinMin,
+    deficitState.extraProteinMax,
+    "g protein per day"
+  )}. Choose a supplement formula, administration method, and feeding rate below before generating the prescription.`;
+
+  populateSupplementProductSelect();
+
+  const product = resolveSupplementProductFromKey(selection.productKey);
+  if (proteinSupplementMode) {
+    proteinSupplementMode.disabled = !product;
+    proteinSupplementMode.value = selection.deliveryMode || "";
+  }
+
+  if (product) {
+    renderSupplementConstituentPanel(product);
+  } else if (supplementConstituentsWrap) {
+    supplementConstituentsWrap.classList.add("hidden");
+    supplementConstituentsWrap.innerHTML = "";
+  }
+
+  const showSupplementControls = Boolean(product && selection.deliveryMode);
+  supplementFeedControls?.classList.toggle("hidden", !showSupplementControls);
+
+  if (showSupplementControls) {
+    selection.hours = Number(supplementFeedHours?.value || selection.hours || 18);
+    selection.rate = Number(supplementFeedRate?.value || selection.rate || 20);
+    supplementFeedHours.value = String(selection.hours);
+    supplementFeedRate.value = String(selection.rate);
+    supplementFeedRateValue.textContent = String(selection.rate);
+
+    const supplementConfig = getSupplementFeedConfig();
+    pathwayState.supplementFeedConfig = supplementConfig;
+    supplementConfig.deliveryMode = selection.deliveryMode;
+    supplementConfig.deliveryModeLabel = getSupplementDeliveryModeLabel(selection.deliveryMode);
+    supplementConfig.productLabel = getSupplementProductDisplayName(product);
+
+    if (selection.deliveryMode === "powder") {
+      supplementModeNote.textContent = `Add ${supplementConfig.productLabel} powder into the ongoing ${getSupplementProductDisplayName(primaryConfig.selectedProduct)} feed using manufacturer standard dilution (${product.dilution}). Feeding rate below estimates supplement delivery.`;
+    } else {
+      supplementModeNote.textContent = `Give ${supplementConfig.productLabel} as a separate feed using manufacturer recommended standard dilution (${product.dilution}).`;
+    }
+
+    renderFeedConfigPanels(supplementConfig, {
+      summary: supplementFeedConfigSummary,
+      targetAnalysis: supplementFeedTargetAnalysis,
+      schedule: supplementFeedSchedule,
+      instruction: supplementFeedInstruction,
+    });
+  } else {
+    pathwayState.supplementFeedConfig = null;
+  }
+
+  const combinedState = updateCombinedFeedPanel(primaryConfig, deficitState);
+  const canGenerate = deficitState.hasDeficit
+    ? combinedState.targetsMet && Boolean(selection.scheduleMode)
+    : combinedState.targetsMet;
+  updateGeneratePrescriptionButton(canGenerate);
+}
+
+function updateGeneratePrescriptionButton(enabled) {
+  if (generatePrescription) {
+    generatePrescription.disabled = !enabled;
+  }
+}
+
+function handleSupplementFeedInteraction(event) {
+  const target = event.target;
+
+  if (
+    target.closest("#protein-supplement-select") ||
+    target.closest("#protein-supplement-mode") ||
+    target.closest("#supplement-feed-hours") ||
+    target.closest("#supplement-feed-rate") ||
+    target.closest('input[name="feed-schedule-mode"]')
+  ) {
+    const selection = ensureProteinSupplementSelection();
+
+    if (target.id === "protein-supplement-select") {
+      selection.productKey = proteinSupplementSelect.value;
+      selection.deliveryMode = "";
+      if (proteinSupplementMode) {
+        proteinSupplementMode.value = "";
+      }
+    }
+
+    if (target.id === "protein-supplement-mode") {
+      selection.deliveryMode = proteinSupplementMode.value;
+      selection.hours = Number(feedHours?.value || 18);
+      selection.rate = 20;
+    }
+
+    if (target.id === "supplement-feed-hours") {
+      selection.hours = Number(supplementFeedHours.value);
+    }
+
+    if (target.id === "supplement-feed-rate") {
+      selection.rate = Number(supplementFeedRate.value);
+      supplementFeedRateValue.textContent = String(selection.rate);
+    }
+
+    if (target.name === "feed-schedule-mode") {
+      selection.scheduleMode = target.value;
+    }
+
+    updateProteinDeficitAndSupplement(pathwayState.feedConfig);
+  }
+}
+
+function buildDualFormulaNurseInstructions(primaryConfig, supplementConfig, selection) {
+  const primaryName = getSupplementProductDisplayName(primaryConfig.selectedProduct);
+  const supplementName = supplementConfig.productLabel;
+  const powderNote =
+    selection.deliveryMode === "powder"
+      ? `Mix ${supplementName} powder into the ${primaryName} feed bag per manufacturer standard dilution before each feed.`
+      : `Run ${supplementName} as a separate feed in a second bag.`;
 
   return `
-    <section class="dual-formula-summary" aria-labelledby="dual-formula-title">
-      <h4 id="dual-formula-title">Delivery from two enteral preparation formulas</h4>
-      <div class="dual-formula-grid">
-        <article class="dual-formula-card">
-          <h5>Formula 1 — Primary feed</h5>
-          <p><span>Product</span><strong>${primaryName}</strong></p>
-          <p><span>Calories delivered</span><strong>${primaryCalories} kcal/day</strong></p>
-          <p><span>Protein delivered</span><strong>${primaryProtein} g/day</strong></p>
-          <p><span>Dilution in use</span><strong>${feedConfig.dilutionLabel}</strong></p>
-          <p><span>Rate</span><strong>${feedConfig.rate} mL/hour</strong></p>
-        </article>
-        <article class="dual-formula-card supplement-card">
-          <h5>Formula 2 — Protein supplement</h5>
-          <p><span>Product</span><strong>${delivery.productLabel}</strong></p>
-          <p><span>Calories delivered</span><strong>${Math.round(delivery.supplementalCalories)} kcal/day</strong></p>
-          <p><span>Protein delivered</span><strong>${formatNumber(delivery.supplementalProtein)} g/day</strong></p>
-          <p><span>Method</span><strong>${delivery.deliveryModeLabel}</strong></p>
-          <p><span>Preparations/day</span><strong>${delivery.servingsPerDay}</strong></p>
-        </article>
-      </div>
-      <div class="combined-delivery-totals">
-        <p><span>Combined calories delivered (both formulas)</span><strong>${combinedCalories} kcal/day</strong></p>
-        <p><span>Combined protein delivered (both formulas)</span><strong>${combinedProtein} g/day</strong></p>
-      </div>
-      <div class="supplement-nurse-note">
-        <p><strong>Supplement instructions:</strong> ${delivery.administrationNote}</p>
-      </div>
-    </section>
-  `;
+Formula 1 — ${primaryName}
+Dilution: ${primaryConfig.dilutionLabel}
+Rate of administration: ${primaryConfig.rate} mL per hour
+Prepare fresh feed every ${formatNumber(primaryConfig.timePerFeed)} hours
+
+Formula 2 — ${supplementName}
+Manufacturer recommended standard dilution: ${supplementConfig.manufacturerDilution}
+Administration: ${supplementConfig.deliveryModeLabel}
+Rate of administration: ${supplementConfig.rate} mL per hour
+Prepare fresh feed every ${formatNumber(supplementConfig.timePerFeed)} hours
+${powderNote}`;
 }
 
 function buildPrescriptionPlainText({
   patient,
   feedConfig,
+  supplementConfig,
+  hasDualFormula,
   calorieMin,
   calorieMax,
   proteinMin,
@@ -1221,11 +1543,10 @@ function buildPrescriptionPlainText({
   totalCaloriesRequiredMax,
   dayThreeTargetMin,
   dayThreeTargetMax,
-  extraSupplementation,
-  supplementState,
   deliveredCaloriesText,
   deliveredProteinText,
   totalVolumeText,
+  selection,
 }) {
   let text = `Enteral Nutrition Prescription:
 
@@ -1236,40 +1557,44 @@ Calorie requirement: ${formatRange(calorieMin, calorieMax, "KCal per day")}
 Recommended protein intake: ${formatRange(proteinMin, proteinMax, "grams per day")}
 Calories from protein: ${formatRange(proteinCaloriesMin, proteinCaloriesMax, "KCal per day")}
 Total calories required: ${formatRange(totalCaloriesRequiredMin, totalCaloriesRequiredMax, "KCal per day")}
-70% target by day 3: ${formatRange(dayThreeTargetMin, dayThreeTargetMax, "KCal per day")}
+70% target by day 3: ${formatRange(dayThreeTargetMin, dayThreeTargetMax, "KCal per day")}`;
 
-Enteral formula selected: ${feedConfig.selectedProduct.name}
-Manufacturer recommended standard dilution: ${feedConfig.selectedProduct.dilution}
-
-Instructions to Nurse:
-
-Dilution: ${feedConfig.dilutionLabel}
-
-Rate of administration: ${feedConfig.rate} mL per hour
-
-Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours
-
-Shake feed in bag hourly
-
-Total calories delivered: ${deliveredCaloriesText}
-Total protein delivered: ${deliveredProteinText}
-Any extra supplementation needed: ${extraSupplementation}
-Total volume from enteral feed per day: ${totalVolumeText}`;
-
-  if (supplementState.isComplete) {
-    const { delivery } = supplementState;
+  if (hasDualFormula) {
     text += `
 
-Protein supplement formula: ${delivery.productLabel}
-Supplement administration: ${delivery.deliveryModeLabel}
-Supplement protein delivered: ${formatNumber(delivery.supplementalProtein)} gm per day
-Supplement calories delivered: ${Math.round(delivery.supplementalCalories)} KCal per day
-Supplement instructions: ${delivery.administrationNote}
-Primary formula calories: ${Math.round(feedConfig.deliveredCalories)} KCal per day
-Primary formula protein: ${formatNumber(feedConfig.deliveredProtein)} gm per day`;
+Formula 1 (Primary enteral feed): ${getSupplementProductDisplayName(feedConfig.selectedProduct)}
+Manufacturer recommended standard dilution: ${feedConfig.manufacturerDilution}
+Selected dilution in use: ${feedConfig.dilutionLabel}
+Rate of administration: ${feedConfig.rate} mL per hour
+Calories delivered: ${Math.round(feedConfig.deliveredCalories)} KCal per day
+Protein delivered: ${formatNumber(feedConfig.deliveredProtein)} gm per day
+
+Formula 2 (Protein supplement feed): ${supplementConfig.productLabel}
+Manufacturer recommended standard dilution: ${supplementConfig.manufacturerDilution}
+Administration method: ${supplementConfig.deliveryModeLabel}
+Rate of administration: ${supplementConfig.rate} mL per hour
+Calories delivered: ${Math.round(supplementConfig.deliveredCalories)} KCal per day
+Protein delivered: ${formatNumber(supplementConfig.deliveredProtein)} gm per day`;
+  } else {
+    text += `
+
+Enteral formula selected: ${feedConfig.selectedProduct.name}
+Manufacturer recommended standard dilution: ${feedConfig.manufacturerDilution}`;
   }
 
   text += `
+
+Instructions to Nurse:
+${hasDualFormula ? buildDualFormulaNurseInstructions(feedConfig, supplementConfig, selection) : `
+Dilution: ${feedConfig.dilutionLabel}
+Rate of administration: ${feedConfig.rate} mL per hour
+Prepare fresh feed every ${formatNumber(feedConfig.timePerFeed)} hours`}
+
+Shake feed in bag hourly
+
+Total calories delivered (all formulas): ${deliveredCaloriesText}
+Total protein delivered (all formulas): ${deliveredProteinText}
+Total volume from enteral feeds per day: ${totalVolumeText}
 
 Standard precautions to be followed while preparing feeds:
 
@@ -1286,30 +1611,6 @@ Standard precautions to be followed while preparing feeds:
 * Any change in dilutions or rate of administration has to be brought to the notice of ICU consultant/Trainee.`;
 
   return text;
-}
-
-function handlePrescriptionSupplementInteraction(event) {
-  const select = event.target.closest("#protein-supplement-select");
-  const modeInput = event.target.closest('input[name="protein-supplement-mode"]');
-
-  if (!select && !modeInput) {
-    return;
-  }
-
-  if (!pathwayState.proteinSupplementSelection) {
-    pathwayState.proteinSupplementSelection = { productKey: "", deliveryMode: "" };
-  }
-
-  if (select) {
-    pathwayState.proteinSupplementSelection.productKey = select.value;
-    pathwayState.proteinSupplementSelection.deliveryMode = "";
-  }
-
-  if (modeInput) {
-    pathwayState.proteinSupplementSelection.deliveryMode = modeInput.value;
-  }
-
-  renderDietPrescription(false);
 }
 
 function renderDietPrescription(shouldScroll = true) {
@@ -1335,42 +1636,84 @@ function renderDietPrescription(shouldScroll = true) {
   const totalCaloriesRequiredMax = calorieMax + proteinCaloriesMax;
   const dayThreeTargetMin = totalCaloriesRequiredMin * 0.7;
   const dayThreeTargetMax = totalCaloriesRequiredMax * 0.7;
-  const extraProteinMin = Math.max(proteinMin - feedConfig.deliveredProtein, 0);
-  const extraProteinMax = Math.max(proteinMax - feedConfig.deliveredProtein, 0);
-  const supplementState = getProteinSupplementState(extraProteinMax, feedConfig);
-  const supplementConfigurator = renderProteinSupplementConfigurator(
-    supplementState,
-    extraProteinMin,
-    extraProteinMax
+  const supplementConfig = pathwayState.supplementFeedConfig;
+  const selection = pathwayState.proteinSupplementSelection;
+  const hasDualFormula = Boolean(supplementConfig && selection?.deliveryMode);
+  const { combinedCalories, combinedProtein, combinedVolume } = getCombinedFeedTotals(
+    feedConfig,
+    hasDualFormula ? supplementConfig : null
   );
-  const extraSupplementation = supplementConfigurator.extraSupplementationText;
-  const deliveredCaloriesText = supplementState.isComplete
-    ? `${Math.round(feedConfig.deliveredCalories + supplementState.delivery.supplementalCalories)} KCal per day (combined from both formulas)`
+
+  const deliveredCaloriesText = hasDualFormula
+    ? `${Math.round(combinedCalories)} KCal per day (Formula 1 + Formula 2)`
     : `${Math.round(feedConfig.deliveredCalories)} KCal per day`;
-  const deliveredProteinText = supplementState.isComplete
-    ? `${formatNumber(feedConfig.deliveredProtein + supplementState.delivery.supplementalProtein)} gm per day (combined from both formulas)`
+  const deliveredProteinText = hasDualFormula
+    ? `${formatNumber(combinedProtein)} gm per day (Formula 1 + Formula 2)`
     : `${formatNumber(feedConfig.deliveredProtein)} gm per day`;
-  const totalVolumeText = supplementState.isComplete && supplementState.delivery.deliveryMode === "separate"
-    ? `${feedConfig.totalVolumePerDay} mL primary feed + ${Math.round(supplementState.delivery.supplementalVolume)} mL supplement`
+  const totalVolumeText = hasDualFormula
+    ? `${combinedVolume} mL (Formula 1: ${feedConfig.totalVolumePerDay} mL + Formula 2: ${supplementConfig.totalVolumePerDay} mL)`
     : `${feedConfig.totalVolumePerDay} mL`;
+
+  const formulaLines = hasDualFormula
+    ? [
+        ["Formula 1 — Primary enteral feed", getSupplementProductDisplayName(feedConfig.selectedProduct)],
+        [
+          "Formula 1 — Manufacturer recommended standard dilution",
+          feedConfig.manufacturerDilution,
+        ],
+        ["Formula 1 — Selected dilution in use", feedConfig.dilutionLabel],
+        ["Formula 1 — Rate of administration", `${feedConfig.rate} mL per hour`],
+        [
+          "Formula 1 — Prepare fresh feed every",
+          `${formatNumber(feedConfig.timePerFeed)} hours`,
+        ],
+        [
+          "Formula 1 — Calories / protein delivered",
+          `${Math.round(feedConfig.deliveredCalories)} KCal / ${formatNumber(feedConfig.deliveredProtein)} gm per day`,
+        ],
+        ["Formula 2 — Protein supplement feed", supplementConfig.productLabel],
+        [
+          "Formula 2 — Manufacturer recommended standard dilution",
+          supplementConfig.manufacturerDilution,
+        ],
+        ["Formula 2 — Administration method", supplementConfig.deliveryModeLabel],
+        ["Formula 2 — Rate of administration", `${supplementConfig.rate} mL per hour`],
+        [
+          "Formula 2 — Prepare fresh feed every",
+          `${formatNumber(supplementConfig.timePerFeed)} hours`,
+        ],
+        [
+          "Formula 2 — Calories / protein delivered",
+          `${Math.round(supplementConfig.deliveredCalories)} KCal / ${formatNumber(supplementConfig.deliveredProtein)} gm per day`,
+        ],
+      ]
+    : [
+        ["Enteral formula selected", feedConfig.selectedProduct.name],
+        [
+          "Manufacturer recommended standard dilution",
+          feedConfig.manufacturerDilution,
+        ],
+        ["Selected dilution in use", feedConfig.dilutionLabel],
+        ["Rate of administration", `${feedConfig.rate} mL per hour`],
+        ["Prepare fresh feed every", `${formatNumber(feedConfig.timePerFeed)} hours`],
+      ];
 
   pathwayState.dietPrescription = {
     patient,
     feedConfig,
+    supplementConfig,
+    hasDualFormula,
     calorieMin,
     calorieMax,
     proteinMin,
     proteinMax,
-    totalCaloriesRequiredMin,
-    totalCaloriesRequiredMax,
-    extraProteinMin,
-    extraProteinMax,
-    supplementState,
   };
 
   pathwayState.dietPrescriptionText = buildPrescriptionPlainText({
     patient,
     feedConfig,
+    supplementConfig,
+    hasDualFormula,
     calorieMin,
     calorieMax,
     proteinMin,
@@ -1381,12 +1724,39 @@ function renderDietPrescription(shouldScroll = true) {
     totalCaloriesRequiredMax,
     dayThreeTargetMin,
     dayThreeTargetMax,
-    extraSupplementation,
-    supplementState,
     deliveredCaloriesText,
     deliveredProteinText,
     totalVolumeText,
+    selection,
   });
+
+  const nurseInstructionsHtml = hasDualFormula
+    ? `
+      <div class="nurse-formula-block">
+        <h5>Formula 1 — ${getSupplementProductDisplayName(feedConfig.selectedProduct)}</h5>
+        <p><strong>Manufacturer standard dilution:</strong> ${feedConfig.manufacturerDilution}</p>
+        <p><strong>Dilution in use:</strong> ${feedConfig.dilutionLabel}</p>
+        <p><strong>Rate of administration:</strong> ${feedConfig.rate} mL per hour</p>
+        <p><strong>Prepare fresh feed every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
+      </div>
+      <div class="nurse-formula-block">
+        <h5>Formula 2 — ${supplementConfig.productLabel}</h5>
+        <p><strong>Manufacturer standard dilution:</strong> ${supplementConfig.manufacturerDilution}</p>
+        <p><strong>Administration:</strong> ${supplementConfig.deliveryModeLabel}</p>
+        <p><strong>Rate of administration:</strong> ${supplementConfig.rate} mL per hour</p>
+        <p><strong>Prepare fresh feed every:</strong> ${formatNumber(supplementConfig.timePerFeed)} hours</p>
+        ${
+          selection.deliveryMode === "powder"
+            ? `<p><strong>Powder mixing:</strong> Add supplement powder into the Formula 1 feed bag using manufacturer standard dilution; mix thoroughly before each administration.</p>`
+            : `<p><strong>Separate feed:</strong> Administer Formula 2 in a separate feeding bag at the prescribed rate.</p>`
+        }
+      </div>
+    `
+    : `
+      <p><strong>Dilution:</strong> ${feedConfig.dilutionLabel}</p>
+      <p><strong>Rate of administration:</strong> ${feedConfig.rate} mL per hour</p>
+      <p><strong>Prepare fresh feed every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
+    `;
 
   dietPrescription.innerHTML = `
     <h3>Enteral Nutrition Prescription :</h3>
@@ -1401,16 +1771,11 @@ function renderDietPrescription(shouldScroll = true) {
           ["Calories from protein", formatRange(proteinCaloriesMin, proteinCaloriesMax, "KCal per day")],
           ["Total calories required", formatRange(totalCaloriesRequiredMin, totalCaloriesRequiredMax, "KCal per day")],
           ["70% target by day 3", formatRange(dayThreeTargetMin, dayThreeTargetMax, "KCal per day")],
-          ["Enteral formula selected", feedConfig.selectedProduct.name],
-          ["Manufacturer recommended standard dilution", feedConfig.selectedProduct.dilution],
-          ["Selected dilution", feedConfig.dilutionLabel],
-          ["Rate of administration", `${feedConfig.rate} mL per hour`],
-          ["Prepare fresh feed every", `${formatNumber(feedConfig.timePerFeed)} hours`],
+          ...formulaLines,
           ["Shake feed in bag", "Hourly"],
-          ["Total calories delivered", deliveredCaloriesText],
-          ["Total protein delivered", deliveredProteinText],
-          ["Any extra supplementation needed", extraSupplementation],
-          ["Total volume from enteral feed per day", totalVolumeText],
+          ["Total calories delivered (all formulas)", deliveredCaloriesText],
+          ["Total protein delivered (all formulas)", deliveredProteinText],
+          ["Total volume from enteral feeds per day", totalVolumeText],
         ]
           .map(
             ([label, value]) => `
@@ -1422,19 +1787,10 @@ function renderDietPrescription(shouldScroll = true) {
           )
           .join("")}
       </div>
-      ${supplementConfigurator.html}
-      ${renderDualFormulaDeliverySummary(feedConfig, supplementState)}
       <div class="nurse-instructions">
         <h4>Instructions to Nurse:</h4>
-        <p><strong>Dilution:</strong> ${feedConfig.dilutionLabel}</p>
-        <p><strong>Rate of administration:</strong> ${feedConfig.rate} mL per hour</p>
-        <p><strong>Prepare fresh feed every:</strong> ${formatNumber(feedConfig.timePerFeed)} hours</p>
+        ${nurseInstructionsHtml}
         <p><strong>Shake feed in bag:</strong> Hourly</p>
-        ${
-          supplementState.isComplete
-            ? `<p><strong>Protein supplement:</strong> ${supplementState.delivery.administrationNote}</p>`
-            : ""
-        }
       </div>
       <h4>Standard precautions to be followed while preparing feeds:</h4>
       <ul>
@@ -2376,6 +2732,7 @@ if (icuDayInput) {
 
 [feedDilution, feedHours, feedRate].forEach((input) => {
   input.addEventListener("input", updateFeedConfiguration);
+  input.addEventListener("change", updateFeedConfiguration);
 });
 
 document.querySelectorAll('input[name="product-filter"]').forEach((input) => {
@@ -2401,6 +2758,10 @@ prepLibraryToggle.addEventListener("click", () => {
 });
 
 generatePrescription.addEventListener("click", () => {
+  if (generatePrescription.disabled) {
+    return;
+  }
+
   renderDietPrescription();
 });
 
@@ -2410,7 +2771,12 @@ dietPrescription.addEventListener("click", (event) => {
   }
 });
 
-dietPrescription.addEventListener("change", handlePrescriptionSupplementInteraction);
+if (feedConfigurator) {
+  feedConfigurator.addEventListener("change", handleSupplementFeedInteraction);
+  feedConfigurator.addEventListener("input", handleSupplementFeedInteraction);
+}
+
+populateSupplementProductSelect();
 
 function handleCelevidaDensityChange(event) {
   const densitySelect = event.target.closest(".celevida-density-select");
