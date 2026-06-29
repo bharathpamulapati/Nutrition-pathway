@@ -1623,6 +1623,23 @@ input[type="range"] {
   margin: 0 0 10px;
 }
 
+.sachet-dosing-controls {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 14px 0;
+}
+
+.sachet-dosing-select {
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.sachet-dosing-warning {
+  color: #9a4b00;
+  font-weight: 700;
+}
+
 .prescription-action-row {
   display: flex;
   flex-wrap: wrap;
@@ -1683,6 +1700,7 @@ input[type="range"] {
   .enteral-phase-buttons,
   .dual-formula-grid,
   .separate-schedule-grid,
+  .sachet-dosing-controls,
   .target-slider-grid,
   .target-number-grid,
   .feed-controls,

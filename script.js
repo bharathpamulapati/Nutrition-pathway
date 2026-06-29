@@ -1089,13 +1089,41 @@ function ensureProteinSupplementSelection() {
   if (!pathwayState.proteinSupplementSelection) {
     pathwayState.proteinSupplementSelection = {
       productKey: "",
+      sachetsPerAdministration: null,
+      administrationsPerDay: null,
+      dosingCustomized: false,
     };
   }
 
   return pathwayState.proteinSupplementSelection;
 }
 
-function calculateSachetSupplementDelivery(product, proteinGap, feedConfig) {
+function getDefaultSachetDosing(minimumSachetsPerDay) {
+  const administrationsPerDay = minimumSachetsPerDay <= 6 ? minimumSachetsPerDay : 6;
+  const sachetsPerAdministration = Math.ceil(minimumSachetsPerDay / administrationsPerDay);
+
+  return { administrationsPerDay, sachetsPerAdministration };
+}
+
+function syncSachetDosingSelection(selection, minimumSachetsPerDay) {
+  const defaultDosing = getDefaultSachetDosing(minimumSachetsPerDay);
+
+  if (!selection.dosingCustomized) {
+    selection.administrationsPerDay = defaultDosing.administrationsPerDay;
+    selection.sachetsPerAdministration = defaultDosing.sachetsPerAdministration;
+  }
+}
+
+function buildSachetDosingSelectOptions(values, selectedValue) {
+  return values
+    .map(
+      (value) =>
+        `<option value="${value}" ${Number(selectedValue) === value ? "selected" : ""}>${value}</option>`
+    )
+    .join("");
+}
+
+function calculateSachetSupplementDelivery(product, proteinGap, feedConfig, selection = null) {
   const proteinPerSachet = getConstituentNumber(product, "Protein");
   const caloriesPerSachet = getConstituentNumber(product, "Calories");
 
@@ -1103,12 +1131,26 @@ function calculateSachetSupplementDelivery(product, proteinGap, feedConfig) {
     return null;
   }
 
-  const sachetsPerDay = Math.ceil(proteinGap / proteinPerSachet);
+  const minimumSachetsPerDay = Math.ceil(proteinGap / proteinPerSachet);
+  const defaultDosing = getDefaultSachetDosing(minimumSachetsPerDay);
+  const administrationsPerDay = Math.max(
+    1,
+    Math.min(
+      8,
+      Number(selection?.administrationsPerDay) || defaultDosing.administrationsPerDay
+    )
+  );
+  const sachetsPerAdministration = Math.max(
+    1,
+    Math.min(
+      6,
+      Number(selection?.sachetsPerAdministration) || defaultDosing.sachetsPerAdministration
+    )
+  );
+  const sachetsPerDay = sachetsPerAdministration * administrationsPerDay;
   const supplementalProtein = sachetsPerDay * proteinPerSachet;
   const supplementalCalories = sachetsPerDay * caloriesPerSachet;
-  const administrationsPerDay =
-    sachetsPerDay <= 6 ? sachetsPerDay : Math.min(6, Math.ceil(sachetsPerDay / 2));
-  const sachetsPerAdministration = Math.ceil(sachetsPerDay / administrationsPerDay);
+  const meetsMinimumDeficit = sachetsPerDay >= minimumSachetsPerDay;
   const productLabel = product.name;
   const primaryFeedName = feedConfig.selectedProduct.name;
 
@@ -1117,11 +1159,19 @@ function calculateSachetSupplementDelivery(product, proteinGap, feedConfig) {
       ? `1 sachet ${administrationsPerDay} time${administrationsPerDay > 1 ? "s" : ""} per day`
       : `${sachetsPerAdministration} sachets ${administrationsPerDay} times per day`;
 
-  const recommendationText = `Recommended: ${dosePhrase} (total ${sachetsPerDay} sachet${
-    sachetsPerDay > 1 ? "s" : ""
-  }/day) using ${productLabel} to meet the estimated protein deficit (~${formatNumber(
-    supplementalProtein
-  )} g protein/day). Mix into the ongoing ${primaryFeedName} feed or give as per ICU protocol.`;
+  const recommendationText = meetsMinimumDeficit
+    ? `Recommended: ${dosePhrase} (total ${sachetsPerDay} sachet${
+        sachetsPerDay > 1 ? "s" : ""
+      }/day) using ${productLabel} to meet the estimated protein deficit (~${formatNumber(
+        supplementalProtein
+      )} g protein/day). Mix into the ongoing ${primaryFeedName} feed or give as per ICU protocol.`
+    : `Selected schedule: ${dosePhrase} (total ${sachetsPerDay} sachet${
+        sachetsPerDay > 1 ? "s" : ""
+      }/day; ~${formatNumber(
+        supplementalProtein
+      )} g protein). Increase sachets or frequency to reach at least ${minimumSachetsPerDay} sachet${
+        minimumSachetsPerDay > 1 ? "s" : ""
+      }/day for the estimated deficit.`;
 
   const administrationNote = `Extra protein supplementation: ${dosePhrase} with ${productLabel} (total ${sachetsPerDay} sachet${
     sachetsPerDay > 1 ? "s" : ""
@@ -1131,11 +1181,13 @@ function calculateSachetSupplementDelivery(product, proteinGap, feedConfig) {
     product,
     productLabel,
     proteinGap,
+    minimumSachetsPerDay,
     sachetsPerDay,
     administrationsPerDay,
     sachetsPerAdministration,
     supplementalProtein,
     supplementalCalories,
+    meetsMinimumDeficit,
     recommendationText,
     administrationNote,
   };
@@ -1152,7 +1204,7 @@ function getProteinSupplementState(extraProteinMax, feedConfig) {
   const selection = ensureProteinSupplementSelection();
   const product = resolveProteinSachetByKey(selection.productKey);
   const delivery = product
-    ? calculateSachetSupplementDelivery(product, extraProteinMax, feedConfig)
+    ? calculateSachetSupplementDelivery(product, extraProteinMax, feedConfig, selection)
     : null;
 
   return {
@@ -1210,22 +1262,50 @@ function updateProteinDeficitAndSupplement(primaryConfig) {
   const product = resolveProteinSachetByKey(selection.productKey);
   if (product) {
     renderSupplementConstituentPanel(product);
+    const minimumSachetsPerDay = Math.ceil(
+      deficitState.extraProteinMax / getConstituentNumber(product, "Protein")
+    );
+    syncSachetDosingSelection(selection, minimumSachetsPerDay);
     const delivery = calculateSachetSupplementDelivery(
       product,
       deficitState.extraProteinMax,
-      primaryConfig
+      primaryConfig,
+      selection
     );
     if (proteinSachetRecommendation && delivery) {
+      const dosingScheduleLabel =
+        delivery.sachetsPerAdministration === 1
+          ? `1 sachet × ${delivery.administrationsPerDay}/day`
+          : `${delivery.sachetsPerAdministration} sachets × ${delivery.administrationsPerDay}/day`;
+
       proteinSachetRecommendation.innerHTML = `
         <h4>Supplementation recommendation</h4>
         <p class="summary"><strong>${delivery.recommendationText}</strong></p>
+        <div class="sachet-dosing-controls">
+          <label class="supplement-select-label">
+            Sachets per dose
+            <select id="sachets-per-dose" class="sachet-dosing-select" aria-label="Sachets per dose">
+              ${buildSachetDosingSelectOptions([1, 2, 3, 4, 5, 6], delivery.sachetsPerAdministration)}
+            </select>
+          </label>
+          <label class="supplement-select-label">
+            Times per day
+            <select id="sachet-doses-per-day" class="sachet-dosing-select" aria-label="Dosing times per day">
+              ${buildSachetDosingSelectOptions([1, 2, 3, 4, 5, 6, 8], delivery.administrationsPerDay)}
+            </select>
+          </label>
+        </div>
+        ${
+          delivery.meetsMinimumDeficit
+            ? ""
+            : `<p class="summary sachet-dosing-warning">Current total (${delivery.sachetsPerDay} sachets/day) is below the minimum ${delivery.minimumSachetsPerDay} sachets/day needed for the estimated deficit.</p>`
+        }
         <div class="summary-tile-grid">
-          ${createSummaryTile("Sachets per day", delivery.sachetsPerDay)}
+          ${createSummaryTile("Total sachets per day", delivery.sachetsPerDay, "Sachets per dose × times per day")}
+          ${createSummaryTile("Dosing schedule", dosingScheduleLabel)}
           ${createSummaryTile(
-            "Dosing schedule",
-            delivery.sachetsPerAdministration === 1
-              ? `1 sachet × ${delivery.administrationsPerDay}/day`
-              : `${delivery.sachetsPerAdministration} sachets × ${delivery.administrationsPerDay}/day`
+            "Minimum for deficit",
+            `${delivery.minimumSachetsPerDay} sachet${delivery.minimumSachetsPerDay > 1 ? "s" : ""}/day`
           )}
           ${createSummaryTile(
             "Protein from sachets",
@@ -1253,13 +1333,36 @@ function updateProteinDeficitAndSupplement(primaryConfig) {
 
 function handleSupplementFeedInteraction(event) {
   const sachetTile = event.target.closest(".protein-sachet-tile");
-  if (!sachetTile?.dataset.sachetName) {
+  if (sachetTile?.dataset.sachetName) {
+    const selection = ensureProteinSupplementSelection();
+    selection.productKey = sachetTile.dataset.sachetName;
+    selection.dosingCustomized = false;
+    selection.sachetsPerAdministration = null;
+    selection.administrationsPerDay = null;
+    updateProteinDeficitAndSupplement(pathwayState.feedConfig);
     return;
   }
 
-  const selection = ensureProteinSupplementSelection();
-  selection.productKey = sachetTile.dataset.sachetName;
-  updateProteinDeficitAndSupplement(pathwayState.feedConfig);
+  if (
+    event.target.id === "sachets-per-dose" ||
+    event.target.id === "sachet-doses-per-day"
+  ) {
+    const selection = ensureProteinSupplementSelection();
+    const sachetsPerDoseSelect = document.getElementById("sachets-per-dose");
+    const dosesPerDaySelect = document.getElementById("sachet-doses-per-day");
+
+    if (sachetsPerDoseSelect && dosesPerDaySelect) {
+      selection.sachetsPerAdministration = Number(sachetsPerDoseSelect.value);
+      selection.administrationsPerDay = Number(dosesPerDaySelect.value);
+      selection.dosingCustomized = true;
+    }
+
+    updateProteinDeficitAndSupplement(pathwayState.feedConfig);
+
+    if (!dietPrescription.classList.contains("hidden")) {
+      renderDietPrescription(false);
+    }
+  }
 }
 
 function buildPrescriptionPlainText({
@@ -2500,6 +2603,7 @@ dietPrescription.addEventListener("click", (event) => {
 
 if (feedConfigurator) {
   feedConfigurator.addEventListener("click", handleSupplementFeedInteraction);
+  feedConfigurator.addEventListener("change", handleSupplementFeedInteraction);
 }
 
 function handleCelevidaDensityChange(event) {
