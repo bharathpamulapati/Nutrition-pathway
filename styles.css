@@ -525,6 +525,19 @@ input[type="range"] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.enteral-phase-btn .enteral-phase-primary {
+  font-size: 1.55rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.enteral-phase-btn .enteral-phase-secondary {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .enteral-planner {
   background: var(--enteral-soft);
   border: 1px solid rgba(36, 116, 71, 0.25);

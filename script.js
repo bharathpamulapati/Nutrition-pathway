@@ -29,9 +29,11 @@ const enteralTargetResults = document.getElementById("enteral-target-results");
 const enteralIbw = document.getElementById("enteral-ibw");
 const caloriePercent = document.getElementById("calorie-percent");
 const caloriePercentValue = document.getElementById("calorie-percent-value");
-const proteinTarget = document.getElementById("protein-target");
-const proteinTargetValue = document.getElementById("protein-target-value");
 const caloriePercentNote = document.getElementById("calorie-percent-note");
+const proteinTargetMin = document.getElementById("protein-target-min");
+const proteinTargetMax = document.getElementById("protein-target-max");
+const proteinTargetRangeValue = document.getElementById("protein-target-range-value");
+const proteinRangeFill = document.getElementById("protein-range-fill");
 const calorieTargetMin = document.getElementById("calorie-target-min");
 const calorieTargetMax = document.getElementById("calorie-target-max");
 const calorieTargetRangeValue = document.getElementById("calorie-target-range-value");
@@ -39,6 +41,8 @@ const calorieRangeFill = document.getElementById("calorie-range-fill");
 
 const CALORIE_KG_RANGE_MIN = 15;
 const CALORIE_KG_RANGE_MAX = 35;
+const PROTEIN_KG_RANGE_MIN = 0.3;
+const PROTEIN_KG_RANGE_MAX = 2.5;
 const productLibrary = document.getElementById("product-library");
 const prepLibraryToggle = document.getElementById("prep-library-toggle");
 const prepLibraryContent = document.getElementById("prep-library-content");
@@ -299,6 +303,8 @@ const pathwayState = {
   gi: null,
   enteralPhase: null,
   enteralPlan: null,
+  enteralProteinRangeSet: false,
+  enteralCalorieRangeSet: false,
   feedConfig: null,
   proteinSupplementSelection: null,
   prescriptionEditing: false,
@@ -579,6 +585,9 @@ function formatNumber(value, decimals = 1) {
 }
 
 function formatRange(min, max, unit = "") {
+  if (min == null || max == null) {
+    return "Not set";
+  }
   const suffix = unit ? ` ${unit}` : "";
   return `${formatNumber(min)}-${formatNumber(max)}${suffix}`;
 }
@@ -1035,23 +1044,27 @@ function renderProteinSachetTiles(selectedKey) {
 }
 
 function getProteinRangeTargets() {
-  const patient = getPrescriptionPatientData();
-  const proteinWeight = patient.idealBodyWeight || patient.calculationWeight;
   const plan = pathwayState.enteralPlan;
 
   return {
-    proteinMin: proteinWeight * 1.2,
-    proteinMax: proteinWeight * 1.5,
-    proteinRequired: plan?.proteinGrams ?? proteinWeight * 1.2,
-    calorieMin: plan?.dayCaloriesMin ?? plan?.fullCaloriesMin ?? null,
-    calorieMax: plan?.dayCaloriesMax ?? plan?.fullCaloriesMax ?? null,
+    proteinMin: pathwayState.enteralProteinRangeSet ? plan?.proteinGramsMin ?? null : null,
+    proteinMax: pathwayState.enteralProteinRangeSet ? plan?.proteinGramsMax ?? null : null,
+    proteinRequired: pathwayState.enteralProteinRangeSet ? plan?.proteinGrams ?? null : null,
+    calorieMin: pathwayState.enteralCalorieRangeSet ? plan?.dayCaloriesMin ?? plan?.fullCaloriesMin ?? null : null,
+    calorieMax: pathwayState.enteralCalorieRangeSet ? plan?.dayCaloriesMax ?? plan?.fullCaloriesMax ?? null : null,
   };
 }
 
 function getProteinDeficitFromFeed(feedConfig) {
   const targets = getProteinRangeTargets();
-  const extraProteinMin = Math.max(targets.proteinMin - feedConfig.deliveredProtein, 0);
-  const extraProteinMax = Math.max(targets.proteinMax - feedConfig.deliveredProtein, 0);
+  const extraProteinMin =
+    targets.proteinMin != null
+      ? Math.max(targets.proteinMin - feedConfig.deliveredProtein, 0)
+      : 0;
+  const extraProteinMax =
+    targets.proteinMax != null
+      ? Math.max(targets.proteinMax - feedConfig.deliveredProtein, 0)
+      : 0;
   const hasDeficit = extraProteinMax > 0;
 
   return {
@@ -1143,7 +1156,7 @@ function calculateSachetSupplementDelivery(product, proteinGap, feedConfig, sele
   const sachetsPerAdministration = Math.max(
     1,
     Math.min(
-      6,
+      10,
       Number(selection?.sachetsPerAdministration) || defaultDosing.sachetsPerAdministration
     )
   );
@@ -1285,7 +1298,7 @@ function updateProteinDeficitAndSupplement(primaryConfig) {
           <label class="supplement-select-label">
             Sachets per dose
             <select id="sachets-per-dose" class="sachet-dosing-select" aria-label="Sachets per dose">
-              ${buildSachetDosingSelectOptions([1, 2, 3, 4, 5, 6], delivery.sachetsPerAdministration)}
+              ${buildSachetDosingSelectOptions([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], delivery.sachetsPerAdministration)}
             </select>
           </label>
           <label class="supplement-select-label">
@@ -1453,25 +1466,24 @@ function renderDietPrescription(shouldScroll = true) {
   const calculationWeight = patient.calculationWeight;
   const proteinWeight = patient.idealBodyWeight || calculationWeight;
   const plan = pathwayState.enteralPlan;
-  let calorieMin;
-  let calorieMax;
-  if (plan?.fullCaloriesMin != null && plan?.fullCaloriesMax != null) {
+  let calorieMin = null;
+  let calorieMax = null;
+  if (pathwayState.enteralCalorieRangeSet && plan?.fullCaloriesMin != null && plan?.fullCaloriesMax != null) {
     calorieMin = plan.fullCaloriesMin;
     calorieMax = plan.fullCaloriesMax;
-  } else {
-    calorieMin = calculationWeight * 25;
-    calorieMax = calculationWeight * 30;
   }
-  const proteinMin = proteinWeight * 1.2;
-  const proteinMax = proteinWeight * 1.5;
-  const proteinCaloriesMin = proteinMin * 4;
-  const proteinCaloriesMax = proteinMax * 4;
-  const totalCaloriesRequiredMin = calorieMin + proteinCaloriesMin;
-  const totalCaloriesRequiredMax = calorieMax + proteinCaloriesMax;
-  const dayThreeTargetMin = totalCaloriesRequiredMin * 0.7;
-  const dayThreeTargetMax = totalCaloriesRequiredMax * 0.7;
-  const extraProteinMin = Math.max(proteinMin - feedConfig.deliveredProtein, 0);
-  const extraProteinMax = Math.max(proteinMax - feedConfig.deliveredProtein, 0);
+  const proteinMin = pathwayState.enteralProteinRangeSet ? plan?.proteinGramsMin ?? null : null;
+  const proteinMax = pathwayState.enteralProteinRangeSet ? plan?.proteinGramsMax ?? null : null;
+  const proteinCaloriesMin = proteinMin != null ? proteinMin * 4 : null;
+  const proteinCaloriesMax = proteinMax != null ? proteinMax * 4 : null;
+  const totalCaloriesRequiredMin =
+    calorieMin != null && proteinCaloriesMin != null ? calorieMin + proteinCaloriesMin : null;
+  const totalCaloriesRequiredMax =
+    calorieMax != null && proteinCaloriesMax != null ? calorieMax + proteinCaloriesMax : null;
+  const dayThreeTargetMin = totalCaloriesRequiredMin != null ? totalCaloriesRequiredMin * 0.7 : null;
+  const dayThreeTargetMax = totalCaloriesRequiredMax != null ? totalCaloriesRequiredMax * 0.7 : null;
+  const extraProteinMin = proteinMin != null ? Math.max(proteinMin - feedConfig.deliveredProtein, 0) : 0;
+  const extraProteinMax = proteinMax != null ? Math.max(proteinMax - feedConfig.deliveredProtein, 0) : 0;
   const supplementState = getProteinSupplementState(extraProteinMax, feedConfig);
   const extraSupplementation = supplementState.isComplete
     ? (() => {
@@ -2202,6 +2214,34 @@ function resetEnteralPhaseSelector() {
   enteralPhaseButtons.forEach((button) => button.classList.remove("recommended"));
 }
 
+function resetEnteralRangeSliders() {
+  pathwayState.enteralProteinRangeSet = false;
+  pathwayState.enteralCalorieRangeSet = false;
+
+  if (proteinTargetMin) {
+    proteinTargetMin.value = String(PROTEIN_KG_RANGE_MIN);
+  }
+  if (proteinTargetMax) {
+    proteinTargetMax.value = String(PROTEIN_KG_RANGE_MIN);
+  }
+  if (calorieTargetMin) {
+    calorieTargetMin.value = String(CALORIE_KG_RANGE_MIN);
+  }
+  if (calorieTargetMax) {
+    calorieTargetMax.value = String(CALORIE_KG_RANGE_MIN);
+  }
+
+  updateProteinDualRangeFill();
+  updateCalorieDualRangeFill();
+
+  if (proteinTargetRangeValue) {
+    proteinTargetRangeValue.textContent = "Not set";
+  }
+  if (calorieTargetRangeValue) {
+    calorieTargetRangeValue.textContent = "Not set";
+  }
+}
+
 function prepareEnteralPlanner() {
   const estimatedIdealBodyWeight = getEstimatedIdealBodyWeight();
 
@@ -2216,9 +2256,7 @@ function prepareEnteralPlanner() {
   if (caloriePercentNote) {
     caloriePercentNote.textContent = "";
   }
-  calorieTargetMin.value = "22";
-  calorieTargetMax.value = "28";
-  updateCalorieDualRangeFill();
+  resetEnteralRangeSliders();
 
   if (estimatedIdealBodyWeight) {
     enteralIbw.value = estimatedIdealBodyWeight;
@@ -2233,6 +2271,7 @@ function resetEnteralPlanner() {
   enteralTargetResults.innerHTML = "";
   pathwayState.enteralPhase = null;
   pathwayState.enteralPlan = null;
+  resetEnteralRangeSliders();
 }
 
 function syncCalorieKcalPerKgRange(sourceSlider) {
@@ -2244,6 +2283,21 @@ function syncCalorieKcalPerKgRange(sourceSlider) {
       minV = maxV;
     } else {
       calorieTargetMax.value = String(minV);
+      maxV = minV;
+    }
+  }
+  return { minV, maxV };
+}
+
+function syncProteinKgRange(sourceSlider) {
+  let minV = Number(proteinTargetMin?.value);
+  let maxV = Number(proteinTargetMax?.value);
+  if (minV > maxV) {
+    if (sourceSlider === proteinTargetMax) {
+      proteinTargetMin.value = String(maxV);
+      minV = maxV;
+    } else {
+      proteinTargetMax.value = String(minV);
       maxV = minV;
     }
   }
@@ -2263,9 +2317,34 @@ function updateCalorieDualRangeFill() {
   calorieRangeFill.style.width = `${Math.max(0, rightPct - leftPct)}%`;
 }
 
+function updateProteinDualRangeFill() {
+  if (!proteinRangeFill || !proteinTargetMin || !proteinTargetMax) {
+    return;
+  }
+  const lo = Number(proteinTargetMin.value);
+  const hi = Number(proteinTargetMax.value);
+  const span = PROTEIN_KG_RANGE_MAX - PROTEIN_KG_RANGE_MIN;
+  const leftPct = ((lo - PROTEIN_KG_RANGE_MIN) / span) * 100;
+  const rightPct = ((hi - PROTEIN_KG_RANGE_MIN) / span) * 100;
+  proteinRangeFill.style.left = `${leftPct}%`;
+  proteinRangeFill.style.width = `${Math.max(0, rightPct - leftPct)}%`;
+}
+
+function formatProteinKgRange(minV, maxV) {
+  const minLabel = minV.toFixed(1);
+  const maxLabel = maxV.toFixed(1);
+  return minLabel === maxLabel ? minLabel : `${minLabel}–${maxLabel}`;
+}
+
+function formatCalorieKgRange(minV, maxV) {
+  return minV === maxV ? `${minV}` : `${minV}–${maxV}`;
+}
+
 function updateEnteralTargetDisplay() {
   const { minV: caloriesPerKgMin, maxV: caloriesPerKgMax } = syncCalorieKcalPerKgRange(null);
+  const { minV: proteinPerKgMin, maxV: proteinPerKgMax } = syncProteinKgRange(null);
   updateCalorieDualRangeFill();
+  updateProteinDualRangeFill();
 
   const day = getNumber("icu-day");
   const idealBodyWeight = getNumber("enteral-ibw");
@@ -2294,60 +2373,114 @@ function updateEnteralTargetDisplay() {
   }
 
   const calorieDeliveryPercent = Number(caloriePercent.value);
-  const proteinPerKg = Number(proteinTarget.value);
-  const caloriesPerKgMid = (caloriesPerKgMin + caloriesPerKgMax) / 2;
-  const proteinGrams = Math.round(idealBodyWeight * proteinPerKg * 10) / 10;
-  const fullCaloriesMin = Math.round(idealBodyWeight * caloriesPerKgMin);
-  const fullCaloriesMax = Math.round(idealBodyWeight * caloriesPerKgMax);
-  const fullCaloriesMid = Math.round(idealBodyWeight * caloriesPerKgMid);
-  const dayCaloriesMin = Math.round(fullCaloriesMin * (calorieDeliveryPercent / 100));
-  const dayCaloriesMax = Math.round(fullCaloriesMax * (calorieDeliveryPercent / 100));
+  const proteinRangeSet = pathwayState.enteralProteinRangeSet;
+  const calorieRangeSet = pathwayState.enteralCalorieRangeSet;
+  const proteinPerKgMid = proteinRangeSet ? (proteinPerKgMin + proteinPerKgMax) / 2 : null;
+  const caloriesPerKgMid = calorieRangeSet ? (caloriesPerKgMin + caloriesPerKgMax) / 2 : null;
+  const proteinGramsMin = proteinRangeSet
+    ? Math.round(idealBodyWeight * proteinPerKgMin * 10) / 10
+    : null;
+  const proteinGramsMax = proteinRangeSet
+    ? Math.round(idealBodyWeight * proteinPerKgMax * 10) / 10
+    : null;
+  const proteinGrams = proteinRangeSet
+    ? Math.round(idealBodyWeight * proteinPerKgMid * 10) / 10
+    : null;
+  const fullCaloriesMin = calorieRangeSet ? Math.round(idealBodyWeight * caloriesPerKgMin) : null;
+  const fullCaloriesMax = calorieRangeSet ? Math.round(idealBodyWeight * caloriesPerKgMax) : null;
+  const fullCaloriesMid = calorieRangeSet ? Math.round(idealBodyWeight * caloriesPerKgMid) : null;
+  const dayCaloriesMin =
+    calorieRangeSet && fullCaloriesMin != null
+      ? Math.round(fullCaloriesMin * (calorieDeliveryPercent / 100))
+      : null;
+  const dayCaloriesMax =
+    calorieRangeSet && fullCaloriesMax != null
+      ? Math.round(fullCaloriesMax * (calorieDeliveryPercent / 100))
+      : null;
 
   caloriePercentValue.textContent = `${calorieDeliveryPercent}%`;
-  proteinTargetValue.textContent = proteinPerKg.toFixed(1);
-  calorieTargetRangeValue.textContent =
-    caloriesPerKgMin === caloriesPerKgMax
-      ? `${caloriesPerKgMin}`
-      : `${caloriesPerKgMin}–${caloriesPerKgMax}`;
+  if (proteinTargetRangeValue) {
+    proteinTargetRangeValue.textContent = proteinRangeSet
+      ? `${formatProteinKgRange(proteinPerKgMin, proteinPerKgMax)} g/kg/day`
+      : "Not set";
+  }
+  if (calorieTargetRangeValue) {
+    calorieTargetRangeValue.textContent = calorieRangeSet
+      ? `${formatCalorieKgRange(caloriesPerKgMin, caloriesPerKgMax)} kcal/kg/day`
+      : "Not set";
+  }
 
   pathwayState.enteralPlan = {
     day,
     idealBodyWeight,
     calorieDeliveryPercent,
-    proteinPerKg,
-    caloriesPerKgMin,
-    caloriesPerKgMax,
+    proteinPerKg: proteinPerKgMid,
+    proteinPerKgMin: proteinRangeSet ? proteinPerKgMin : null,
+    proteinPerKgMax: proteinRangeSet ? proteinPerKgMax : null,
+    proteinPerKgMid,
+    caloriesPerKgMin: calorieRangeSet ? caloriesPerKgMin : null,
+    caloriesPerKgMax: calorieRangeSet ? caloriesPerKgMax : null,
     caloriesPerKgMid,
     proteinGrams,
+    proteinGramsMin,
+    proteinGramsMax,
     fullCalories: fullCaloriesMid,
     fullCaloriesMin,
     fullCaloriesMax,
     dayCaloriesMin,
     dayCaloriesMax,
-    dayCalories: Math.round(fullCaloriesMid * (calorieDeliveryPercent / 100)),
+    dayCalories:
+      fullCaloriesMid != null
+        ? Math.round(fullCaloriesMid * (calorieDeliveryPercent / 100))
+        : null,
   };
 
-  const fullCalorieDetail =
-    caloriesPerKgMin === caloriesPerKgMax
+  const fullCalorieDetail = !calorieRangeSet
+    ? "Set min and max using the slider above"
+    : caloriesPerKgMin === caloriesPerKgMax
       ? `${caloriesPerKgMin} kcal/kg/day x IBW ${idealBodyWeight} kg`
       : `${caloriesPerKgMin}–${caloriesPerKgMax} kcal/kg/day x IBW ${idealBodyWeight} kg`;
+
+  const proteinDetail = !proteinRangeSet
+    ? "Set min and max using the slider above"
+    : proteinPerKgMin === proteinPerKgMax
+      ? `${proteinPerKgMin.toFixed(1)} g/kg/day x IBW ${idealBodyWeight} kg`
+      : `${proteinPerKgMin.toFixed(1)}–${proteinPerKgMax.toFixed(1)} g/kg/day x IBW ${idealBodyWeight} kg`;
+
+  const proteinTargetLabel = !proteinRangeSet
+    ? "Not set"
+    : proteinGramsMin === proteinGramsMax
+      ? `${proteinGramsMin} g/day`
+      : `${proteinGramsMin}–${proteinGramsMax} g/day`;
+
+  const fullCalorieTargetLabel = !calorieRangeSet
+    ? "Not set"
+    : fullCaloriesMin === fullCaloriesMax
+      ? `${fullCaloriesMin} kcal/day`
+      : `${fullCaloriesMin}–${fullCaloriesMax} kcal/day`;
+
+  const dayCalorieTargetLabel = !calorieRangeSet
+    ? "Not set"
+    : dayCaloriesMin === dayCaloriesMax
+      ? `${dayCaloriesMin} kcal/day`
+      : `${dayCaloriesMin}–${dayCaloriesMax} kcal/day`;
 
   enteralTargetResults.innerHTML = `
     <div class="target-number-grid">
       <article>
         <span>Protein target</span>
-        <strong>${proteinGrams} g/day</strong>
-        <small>${proteinPerKg.toFixed(1)} g/kg/day x IBW ${idealBodyWeight} kg</small>
+        <strong>${proteinTargetLabel}</strong>
+        <small>${proteinDetail}</small>
       </article>
       <article>
         <span>Full calorie requirement</span>
-        <strong>${fullCaloriesMin === fullCaloriesMax ? fullCaloriesMin : `${fullCaloriesMin}–${fullCaloriesMax}`} kcal/day</strong>
+        <strong>${fullCalorieTargetLabel}</strong>
         <small>${fullCalorieDetail}</small>
       </article>
       <article>
         <span>ICU day ${day} calorie target</span>
-        <strong>${dayCaloriesMin === dayCaloriesMax ? dayCaloriesMin : `${dayCaloriesMin}–${dayCaloriesMax}`} kcal/day</strong>
-        <small>${calorieDeliveryPercent}% of full calorie requirement</small>
+        <strong>${dayCalorieTargetLabel}</strong>
+        <small>${calorieRangeSet ? `${calorieDeliveryPercent}% of full calorie requirement` : "Set calorie range above"}</small>
       </article>
     </div>
     <p class="summary">Advance feeding as tolerated; from ICU day 3 onward the planner uses 70% of full calories (never 100%).</p>
@@ -2395,6 +2528,7 @@ function resetFlow() {
   pathwayState.gi = null;
   pathwayState.enteralPhase = null;
   pathwayState.enteralPlan = null;
+  resetEnteralRangeSliders();
   [enteralChoice, parenteralChoice].forEach((button) =>
     button.classList.remove("recommended")
   );
@@ -2441,6 +2575,7 @@ clearPatientData.addEventListener("click", () => {
   pathwayState.gi = null;
   pathwayState.enteralPhase = null;
   pathwayState.enteralPlan = null;
+  resetEnteralRangeSliders();
   [enteralChoice, parenteralChoice].forEach((button) =>
     button.classList.remove("recommended")
   );
@@ -2473,6 +2608,7 @@ resetNutrition.addEventListener("click", () => {
   pathwayState.gi = null;
   pathwayState.enteralPhase = null;
   pathwayState.enteralPlan = null;
+  resetEnteralRangeSliders();
   [enteralChoice, parenteralChoice].forEach((button) =>
     button.classList.remove("recommended")
   );
@@ -2510,16 +2646,47 @@ enteralDayForm.addEventListener("submit", (event) => {
   productLibrary.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-[caloriePercent, proteinTarget, enteralIbw].forEach((input) => {
+[caloriePercent, enteralIbw].forEach((input) => {
   input.addEventListener("input", updateEnteralTargetDisplay);
 });
 
+if (proteinTargetMin) {
+  proteinTargetMin.addEventListener("input", () => {
+    pathwayState.enteralProteinRangeSet = true;
+    syncProteinKgRange(proteinTargetMin);
+    updateEnteralTargetDisplay();
+  });
+}
+
+if (proteinTargetMax) {
+  proteinTargetMax.addEventListener("input", () => {
+    pathwayState.enteralProteinRangeSet = true;
+    syncProteinKgRange(proteinTargetMax);
+    updateEnteralTargetDisplay();
+  });
+}
+
+[proteinTargetMin, proteinTargetMax].forEach((slider) => {
+  if (!slider) {
+    return;
+  }
+  slider.addEventListener("pointerdown", () => {
+    slider.style.zIndex = "5";
+    const other = slider === proteinTargetMin ? proteinTargetMax : proteinTargetMin;
+    if (other) {
+      other.style.zIndex = "4";
+    }
+  });
+});
+
 calorieTargetMin.addEventListener("input", () => {
+  pathwayState.enteralCalorieRangeSet = true;
   syncCalorieKcalPerKgRange(calorieTargetMin);
   updateEnteralTargetDisplay();
 });
 
 calorieTargetMax.addEventListener("input", () => {
+  pathwayState.enteralCalorieRangeSet = true;
   syncCalorieKcalPerKgRange(calorieTargetMax);
   updateEnteralTargetDisplay();
 });
